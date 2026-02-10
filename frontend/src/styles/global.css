@@ -1,0 +1,25 @@
+:root {
+  --brand-primary: #0d6efd;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  background-color: #f8f9fa;
+}
+
+.navbar-brand b {
+  color: var(--brand-primary);
+}
+
+.spinner-border-lg {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.4rem;
+}
