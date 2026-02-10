@@ -1,3 +1,4 @@
+// src/pages/Login.jsx
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { loginUser } from "../services/authApi.js";
@@ -5,17 +6,9 @@ import { loginUser } from "../services/authApi.js";
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Optional success banner if redirected from Register
-  const justRegistered = useMemo(
-    () => new URLSearchParams(location.search).get("registered") === "1",
-    [location.search],
-  );
-
-  // Where to go after login (e.g., /favorites)
   const nextPath = useMemo(
     () => new URLSearchParams(location.search).get("next") || "/",
-    [location.search],
+    [location.search]
   );
 
   const [form, setForm] = useState({ email: "", password: "" });
@@ -30,11 +23,8 @@ export default function Login() {
 
   function validate() {
     if (!form.email.trim()) return "Email is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      return "Please enter a valid email.";
-    if (!form.password) return "Password is required.";
-    if (form.password.length < 8)
-      return "Password must be at least 8 characters.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Please enter a valid email.";
+    if (!form.password || form.password.length < 8) return "Password must be at least 8 characters.";
     return null;
   }
 
@@ -42,19 +32,16 @@ export default function Login() {
     e.preventDefault();
     setErr(null);
     const msg = validate();
-    if (msg) {
-      setErr(msg);
-      return;
-    }
+    if (msg) return setErr(msg);
 
     try {
       setLoading(true);
-      await loginUser({
+      const res = await loginUser({
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
-
-      // ✅ Success → go to `next` or home
+      // 🔔 tell the app we are logged in
+      window.dispatchEvent(new CustomEvent("auth:login", { detail: { user: res?.user } }));
       navigate(nextPath, { replace: true });
     } catch (error) {
       const message =
@@ -70,89 +57,34 @@ export default function Login() {
   return (
     <>
       <h2>Login</h2>
-
-      {justRegistered && (
-        <div className="alert alert-success" role="alert">
-          Registration successful! You can log in now.
-        </div>
-      )}
-
-      {err && (
-        <div className="alert alert-danger" role="alert">
-          {err}
-        </div>
-      )}
+      {err && <div className="alert alert-danger">{err}</div>}
 
       <form className="mt-3" onSubmit={onSubmit} noValidate>
         <div className="mb-3">
-          <label className="form-label" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            className="form-control"
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={onChange}
-            placeholder="you@example.com"
-            required
-            autoComplete="email"
-          />
+          <label className="form-label" htmlFor="email">Email</label>
+          <input id="email" className="form-control" type="email" name="email"
+                 value={form.email} onChange={onChange} placeholder="you@example.com" required />
         </div>
 
         <div className="mb-3">
-          <label className="form-label" htmlFor="password">
-            Password
-          </label>
+          <label className="form-label" htmlFor="password">Password</label>
           <div className="input-group">
-            <input
-              id="password"
-              className="form-control"
-              type={showPwd ? "text" : "password"}
-              name="password"
-              value={form.password}
-              onChange={onChange}
-              required
-              minLength={8}
-              autoComplete="current-password"
-              placeholder="Your password"
-            />
-            <button
-              type="button"
-              className="btn btn-outline-secondary"
-              onClick={() => setShowPwd((s) => !s)}
-              aria-label={showPwd ? "Hide password" : "Show password"}
-            >
+            <input id="password" className="form-control" type={showPwd ? "text" : "password"}
+                   name="password" value={form.password} onChange={onChange} required minLength={8} />
+            <button type="button" className="btn btn-outline-secondary"
+                    onClick={() => setShowPwd((s) => !s)}>
               {showPwd ? "Hide" : "Show"}
             </button>
           </div>
         </div>
 
-        <button
-          className="btn btn-primary w-100"
-          type="submit"
-          disabled={loading}
-        >
-          {loading ? (
-            <span className="d-inline-flex align-items-center gap-2">
-              <span>Signing in…</span>
-              <span
-                className="spinner-border spinner-border-sm"
-                role="status"
-                aria-hidden="true"
-              />
-            </span>
-          ) : (
-            "Login"
-          )}
+        <button className="btn btn-primary w-100" type="submit" disabled={loading}>
+          {loading ? "Signing in…" : "Login"}
         </button>
       </form>
 
       <div className="text-center mt-3">
-        <small className="text-muted">
-          Don’t have an account? <Link to="/register">Register</Link>
-        </small>
+        <small className="text-muted">Don’t have an account? <Link to="/register">Register</Link></small>
       </div>
     </>
   );
