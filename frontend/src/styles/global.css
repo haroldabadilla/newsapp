@@ -1,25 +1,267 @@
+/* =========================================================
+   Global Theme & Typography — NewsApp
+   IBM Plex Serif is linked in index.html (no @import here)
+   ========================================================= */
+
+/* ===== Dark Theme Tokens (default) ===== */
 :root {
-  --brand-primary: #0d6efd;
+  /* Colors */
+  --bg: #222831;              /* app background */
+  --surface: #393E46;         /* cards, navbar, footer */
+  --surface-1: #2a2f36;       /* inputs/selects field bg */
+  --accent: #FFD369;          /* primary CTAs */
+  --accent-contrast: #222831; /* text color on accent in dark */
+  --text: #EEEEEE;            /* foreground text */
+  --muted: rgba(238, 238, 238, 0.85);
+  --border: rgba(255, 255, 255, 0.08);
+
+  /* States */
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error:   #ef4444;
+
+  /* Typography */
+  --font-serif: "IBM Plex Serif", ui-serif, Georgia, "Times New Roman", serif;
+  --bs-body-font-family: var(--font-serif);
+
+  /* Weight scale */
+  --fw-100: 100;
+  --fw-200: 200;
+  --fw-300: 300;
+  --fw-400: 400;  /* regular */
+  --fw-500: 500;  /* medium */
+  --fw-600: 600;  /* semibold */
+  --fw-700: 700;  /* bold */
 }
 
-body {
-  font-family:
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
-  background-color: #f8f9fa;
+/* ===== Light Theme Tokens (activate with data-theme="light") ===== */
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-1: #ffffff;
+  --accent: #0D6EFD;           /* Bootstrap primary blue in light */
+  --accent-contrast: #ffffff;  /* white text on blue */
+  --text: #212529;
+  --muted: #6C757D;
+  --border: #DEE2E6;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error:   #ef4444;
 }
 
-.navbar-brand b {
-  color: var(--brand-primary);
+/* ===== Base ===== */
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-.spinner-border-lg {
-  width: 3rem;
-  height: 3rem;
-  border-width: 0.4rem;
+/* Headings weight tuning */
+h1, .h1 { font-weight: var(--fw-700); }
+h2, .h2 { font-weight: var(--fw-700); }
+h3, .h3 { font-weight: var(--fw-600); }
+h4, .h4 { font-weight: var(--fw-600); }
+h5, .h5 { font-weight: var(--fw-500); }
+h6, .h6 { font-weight: var(--fw-500); }
+
+/* Interactive text & labels */
+.btn, .nav-link, .form-label { font-weight: var(--fw-600); }
+
+/* Body-ish text */
+body, .card-text, .text-muted, .form-control, .form-select, .navbar-text {
+  font-weight: var(--fw-400);
 }
+
+/* Utilities */
+.fw-200 { font-weight: var(--fw-200) !important; }
+.fw-300 { font-weight: var(--fw-300) !important; }
+.fw-500 { font-weight: var(--fw-500) !important; }
+.fw-600 { font-weight: var(--fw-600) !important; }
+.fw-700 { font-weight: var(--fw-700) !important; }
+
+/* ===== Links / brand ===== */
+a { color: var(--accent); }
+a:hover { filter: brightness(0.95); }
+.navbar-brand { color: var(--text); font-weight: var(--fw-700); }
+.navbar-brand .brand-base { color: var(--text); }
+.navbar-brand .brand-accent { color: var(--accent); }
+
+/* ===== Navbar ===== */
+.navbar-dark-custom {
+  background: var(--surface) !important;
+  border-bottom: 1px solid var(--border);
+}
+.navbar-dark-custom .nav-link { color: var(--text); opacity: .9; }
+.navbar-dark-custom .nav-link.active,
+.navbar-dark-custom .nav-link:hover { opacity: 1; }
+.navbar-dark-custom .navbar-text { color: var(--muted); }
+
+/* Light theme navbar override */
+:root[data-theme="light"] .navbar-dark-custom {
+  background: #F8F9FA !important;
+  border-bottom: 1px solid #E9ECEF;
+}
+:root[data-theme="light"] .navbar-dark-custom .nav-link,
+:root[data-theme="light"] .navbar-dark-custom .navbar-brand,
+:root[data-theme="light"] .navbar-dark-custom .navbar-text {
+  color: var(--text);
+}
+
+/* ===== Footer ===== */
+.footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.footer a { color: var(--text); opacity: .85; text-decoration: none; }
+.footer a:hover { opacity: 1; }
+.footer .muted { color: var(--muted); }
+
+/* ===== Cards / Surfaces ===== */
+.card-surface {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+}
+/* Softer on light (to match earlier UI) */
+:root[data-theme="light"] .card-surface { box-shadow: none; }
+
+/* ===== Buttons (map Bootstrap vars to our tokens) ===== */
+.btn-accent,
+.btn-primary {
+  /* Map Bootstrap button variables to tokens */
+  --bs-btn-bg: var(--accent) !important;
+  --bs-btn-border-color: var(--accent) !important;
+  --bs-btn-color: var(--accent-contrast) !important;
+
+  /* Hover/active shades */
+  --bs-btn-hover-bg: color-mix(in srgb, var(--accent) 90%, #000 10%) !important;
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--accent) 90%, #000 10%) !important;
+  --bs-btn-active-bg: color-mix(in srgb, var(--accent) 85%, #000 15%) !important;
+  --bs-btn-active-border-color: color-mix(in srgb, var(--accent) 85%, #000 15%) !important;
+
+  /* Fallbacks for older styles */
+  background: var(--bs-btn-bg) !important;
+  border-color: var(--bs-btn-border-color) !important;
+  color: var(--bs-btn-color) !important;
+  font-weight: var(--fw-600);
+}
+
+/* Outline Primary (mapped to accent) */
+.btn-outline-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-outline-primary:hover {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
+}
+
+/* Outline Light (works in both themes) */
+.btn-outline-light { border-color: rgba(238,238,238,.6); color: var(--text); }
+.btn-outline-light:hover { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+
+/* Ensure outline-light is readable on light mode */
+:root[data-theme="light"] .btn-outline-light {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+:root[data-theme="light"] .btn-outline-light:hover {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent-contrast) !important;
+}
+
+/* ===== Forms (HIGH CONTRAST) ===== */
+.form-label { color: var(--text); opacity: .95; }
+
+.form-control, .form-select, .input-group-text, .form-check-input {
+  background-color: var(--surface-1);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.form-control::placeholder { color: #cfcfcf; opacity: .85; }
+
+.form-control:focus, .form-select:focus {
+  box-shadow: none;
+  border-color: rgba(255, 211, 105, 0.65);
+  outline: 0;
+}
+.input-group .btn { border-color: var(--border); color: var(--text); }
+
+/* Muted text readable on both themes */
+.text-muted { color: var(--muted) !important; }
+
+/* Valid/invalid feedback contrast */
+.is-valid, .was-validated .form-control:valid { border-color: rgba(34,197,94,.7) !important; }
+.is-invalid, .was-validated .form-control:invalid { border-color: rgba(239,68,68,.8) !important; }
+.valid-feedback, .invalid-feedback { color: var(--muted) !important; }
+.invalid-feedback, .text-danger { color: #ff9b9b !important; }
+
+/* Native controls: color-scheme per theme */
+:root:not([data-theme="light"]) .form-select,
+:root:not([data-theme="light"]) .form-control { color-scheme: dark; }
+:root[data-theme="light"] .form-select,
+:root[data-theme="light"] .form-control { color-scheme: light; }
+
+.form-select option { background: var(--surface-1); color: var(--text); }
+.form-select option:checked { background-color: var(--accent); color: var(--accent-contrast); }
+
+/* Chrome/Edge autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0px 1000px var(--surface-1) inset;
+  box-shadow: 0 0 0px 1000px var(--surface-1) inset;
+  transition: background-color 9999s ease-in-out 0s;
+  caret-color: var(--text);
+}
+
+/* ===== Pagination ===== */
+.page-link { background: transparent; color: var(--text); border-color: var(--border); }
+.page-link.active, .active > .page-link {
+  color: var(--accent-contrast) !important;
+  background-color: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+
+/* ===== Tabs (dark mode polish) ===== */
+:root:not([data-theme="light"]) .nav-tabs {
+  border-bottom: 1px solid var(--border);
+}
+:root:not([data-theme="light"]) .nav-tabs .nav-link {
+  color: var(--text);
+}
+:root:not([data-theme="light"]) .nav-tabs .nav-link.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border) var(--border) transparent;
+}
+
+/* ===== Focus ring (keyboard a11y) ===== */
+:focus-visible { outline: 2px solid rgba(255, 211, 105, 0.9); outline-offset: 2px; }
+
+/* ===== Skeleton shimmer ===== */
+.skeleton { position: relative; overflow: hidden; background: rgba(255,255,255,.06); }
+.skeleton::after {
+  content:""; position:absolute; inset:0; transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent);
+  animation: shimmer 1.6s infinite;
+}
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* ===== Text selection ===== */
+::selection { background: rgba(255,211,105,.35); color: #222831; }
+
+/* Optional: hide footer nav if needed */
+.footer[data-show-nav="false"] .nav { display: none !important; }

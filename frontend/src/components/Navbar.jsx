@@ -3,12 +3,15 @@ import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { fetchMe, logoutUser } from "../services/authApi.js";
 
+// Theme helpers
+import { getTheme, toggleTheme } from "../utils/theme.js";
+
 export default function Navbar() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
+  const [theme, setTheme] = useState(() => getTheme());
 
-  // Initial session check on mount
   useEffect(() => {
     let ignore = false;
 
@@ -17,22 +20,16 @@ export default function Navbar() {
         const res = await fetchMe(); // { user }
         if (!ignore) setUser(res.user);
       } catch {
-        if (!ignore) setUser(null); // silently logged out
+        if (!ignore) setUser(null);
       } finally {
         if (!ignore) setChecking(false);
       }
     }
-
     check();
 
-    // Auth event listeners
     function onLogin(e) {
-      // Optimistic UI update
       if (e?.detail?.user) setUser(e.detail.user);
-      // Optionally confirm by calling /me (uncomment if you want)
-      // check();
     }
-
     function onLogout() {
       setUser(null);
     }
@@ -40,17 +37,23 @@ export default function Navbar() {
     window.addEventListener("auth:login", onLogin);
     window.addEventListener("auth:logout", onLogout);
 
+    // Sync theme if it changes in another tab
+    function onStorage(e) {
+      if (e.key === "newsapp_theme" && e.newValue) setTheme(e.newValue);
+    }
+    window.addEventListener("storage", onStorage);
+
     return () => {
       ignore = true;
       window.removeEventListener("auth:login", onLogin);
       window.removeEventListener("auth:logout", onLogout);
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 
   async function onLogoutClick() {
     try {
       await logoutUser();
-      // 🔔 tell the app we logged out
       window.dispatchEvent(new Event("auth:logout"));
       navigate("/", { replace: true });
     } catch (e) {
@@ -58,17 +61,24 @@ export default function Navbar() {
     }
   }
 
+  function onToggleTheme() {
+    const next = toggleTheme();
+    setTheme(next);
+  }
+
   return (
-    <nav className="navbar navbar-expand-lg bg-white border-bottom">
+    <nav className="navbar navbar-expand-lg navbar-dark navbar-dark-custom">
       <div className="container">
         <Link to="/" className="navbar-brand">
-          News<b>App</b>
+          <span className="brand-base">News</span>
+          <b className="brand-accent">App</b>
         </Link>
 
         <button
           className="navbar-toggler"
           data-bs-toggle="collapse"
           data-bs-target="#nav"
+          aria-label="Toggle navigation"
         >
           <span className="navbar-toggler-icon" />
         </button>
@@ -85,7 +95,7 @@ export default function Navbar() {
                 Search
               </NavLink>
             </li>
-            {/* Show Favorites and Profile only when logged in */}
+
             {!checking && user && (
               <>
                 <li className="nav-item">
@@ -102,7 +112,26 @@ export default function Navbar() {
             )}
           </ul>
 
-          <ul className="navbar-nav">
+          <ul className="navbar-nav align-items-center gap-2">
+            {/* Icon-only theme toggle (keeps an accessible label) */}
+            <li className="nav-item">
+              <button
+                type="button"
+                className="btn btn-outline-light btn-sm"
+                onClick={onToggleTheme}
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                <i
+                  className={theme === "dark" ? "bi bi-sun" : "bi bi-moon-stars-fill"}
+                  aria-hidden="true"
+                />
+                <span className="visually-hidden">
+                  {theme === "dark" ? "Light mode" : "Dark mode"}
+                </span>
+              </button>
+            </li>
+
             {checking ? null : user ? (
               <>
                 <li className="nav-item d-flex align-items-center">
@@ -110,7 +139,7 @@ export default function Navbar() {
                 </li>
                 <li className="nav-item">
                   <button
-                    className="btn btn-outline-secondary btn-sm"
+                    className="btn btn-outline-light btn-sm"
                     onClick={onLogoutClick}
                   >
                     Logout

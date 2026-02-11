@@ -13,7 +13,6 @@ function onImgError(e) {
 }
 
 function makeIdFromUrl(url) {
-  // stable, URL-based id; keep simple & deterministic
   try {
     return (
       "art_" +
@@ -33,55 +32,69 @@ export default function NewsCard({ article, index }) {
   const detailPath = url ? `/article/${encodeURIComponent(url)}` : "#";
 
   function cacheForDetail() {
-    // cache article payload for direct access on ArticleView
-    if (url) {
-      try {
-        sessionStorage.setItem(
-          `newsapp_article_${id}`,
-          JSON.stringify(article),
+    if (!url) return;
+    try {
+      sessionStorage.setItem(
+        `newsapp_article_${id}`,
+        JSON.stringify(article),
+      );
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          "[NewsCard] Unable to cache article in sessionStorage:",
+          err?.message || err,
         );
-      } catch {}
+      }
     }
   }
 
   return (
     <div className="col">
-      <div className="card h-100 shadow-sm">
-        <img
-          src={safeImg(urlToImage)}
-          alt={title || "Article image"}
-          className="card-img-top"
-          onError={onImgError}
-        />
-        <div className="card-body d-flex flex-column">
-          <div className="small text-muted mb-1">
+      <div className="card-surface h-100">
+        <div className="ratio ratio-16x9">
+          <img
+            src={safeImg(urlToImage)}
+            alt={title || "Article image"}
+            className="w-100"
+            onError={onImgError}
+            style={{ objectFit: "cover", borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
+          />
+        </div>
+
+        {/* ⬇️ Added padding here */}
+        <div className="card-body d-flex flex-column p-3 p-sm-4">
+          <div className="small text-muted mb-2">
             {source?.name || "Unknown source"} •{" "}
             {publishedAt ? new Date(publishedAt).toLocaleString() : "—"}
           </div>
-          <h5 className="card-title">{title || "Untitled article"}</h5>
-          {description && <p className="card-text">{description}</p>}
 
-          <div className="mt-auto d-flex gap-2">
-            {url && (
-              <Link
-                className="btn btn-primary btn-sm"
-                to={detailPath}
-                state={{ article, id }}
-                onClick={cacheForDetail}
-              >
-                Read
-              </Link>
-            )}
-            {url && (
-              <a
-                className="btn btn-outline-secondary btn-sm"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open Source
-              </a>
-            )}
+          <h5 className="card-title">{title || "Untitled article"}</h5>
+          {description && <p className="card-text text-muted mb-0">{description}</p>}
+
+          {/* ⬇️ a bit of spacing before the buttons */}
+          <div className="mt-auto pt-3">
+            <div className="d-flex justify-content-center flex-wrap gap-2">
+              {url && (
+                <Link
+                  className="btn btn-accent px-3 py-2"
+                  to={detailPath}
+                  state={{ article, id }}
+                  onClick={cacheForDetail}
+                >
+                  Read
+                </Link>
+              )}
+              {url && (
+                <a
+                  className="btn btn-outline-light px-3 py-2"
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Open Source
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </div>

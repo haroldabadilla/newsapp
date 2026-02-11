@@ -37,7 +37,9 @@ function cacheArticleForView(article, url) {
     const id = makeIdFromUrl(url);
     sessionStorage.setItem(`newsapp_article_${id}`, JSON.stringify(article));
   } catch (e) {
-    console.error("Failed to cache article:", e);
+    if (import.meta.env.DEV) {
+      console.warn("[Favorites] cacheArticleForView failed:", e?.message || e);
+    }
   }
 }
 
@@ -91,8 +93,7 @@ export default function Favorites() {
       setTotal(data.total || 0);
     } catch (e) {
       setErr("Failed to load favorites. Please try again.");
-      // eslint-disable-next-line no-console
-      console.error(e);
+      if (import.meta.env.DEV) console.error(e);
     } finally {
       setLoading(false);
     }
@@ -100,13 +101,9 @@ export default function Favorites() {
 
   useEffect(() => {
     if (!allowed) return;
-    let ignore = false;
     (async () => {
       await load();
     })();
-    return () => {
-      ignore = true;
-    };
   }, [allowed, load]);
 
   // 3) Remove action
@@ -122,7 +119,7 @@ export default function Favorites() {
       }
     } catch (e) {
       setErr("Failed to remove favorite. Please try again.");
-      console.error(e);
+      if (import.meta.env.DEV) console.error(e);
     }
   }
 
@@ -177,53 +174,69 @@ export default function Favorites() {
 
               return (
                 <div key={fav.id || fav._id || fav.url} className="col">
-                  <div className="card h-100 shadow-sm">
-                    <img
-                      src={fav.urlToImage || placeholderImg}
-                      alt={fav.title || "Article image"}
-                      className="card-img-top"
-                      onError={onImgError}
-                    />
-                    <div className="card-body d-flex flex-column">
-                      <div className="small text-muted mb-1">
+                  <div className="card-surface h-100">
+                    <div className="ratio ratio-16x9">
+                      <img
+                        src={fav.urlToImage || placeholderImg}
+                        alt={fav.title || "Article image"}
+                        onError={onImgError}
+                        className="w-100"
+                        style={{ objectFit: "cover", borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
+                      />
+                    </div>
+
+                    {/* Match NewsCard padding and layout */}
+                    <div className="card-body d-flex flex-column p-3 p-sm-4">
+                      <div className="small text-muted mb-2">
                         {fav.source || "Unknown source"} •{" "}
                         {fav.publishedAt
                           ? new Date(fav.publishedAt).toLocaleString()
                           : "—"}
                       </div>
+
                       <h5 className="card-title">
                         {fav.title || "Untitled article"}
                       </h5>
-                      <div className="mt-auto d-flex gap-2 flex-wrap">
-                        {fav.url && (
-                          <Link
-                            className="btn btn-primary btn-sm"
-                            to={detailPath}
-                            state={{ article: articleForCache }}
-                            onClick={() =>
-                              cacheArticleForView(articleForCache, fav.url)
-                            }
+
+                      {fav.description && (
+                        <p className="card-text text-muted mb-0">
+                          {fav.description}
+                        </p>
+                      )}
+
+                      {/* Centered actions with comfy spacing (same as NewsCard) */}
+                      <div className="mt-auto pt-3">
+                        <div className="d-flex justify-content-center flex-wrap gap-2">
+                          {fav.url && (
+                            <Link
+                              className="btn btn-accent px-3 py-2"
+                              to={detailPath}
+                              state={{ article: articleForCache }}
+                              onClick={() =>
+                                cacheArticleForView(articleForCache, fav.url)
+                              }
+                            >
+                              Read
+                            </Link>
+                          )}
+                          {fav.url && (
+                            <a
+                              className="btn btn-outline-light px-3 py-2"
+                              href={fav.url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open Source
+                            </a>
+                          )}
+                          <button
+                            className="btn btn-outline-danger px-3 py-2"
+                            onClick={() => onRemove(fav.id || fav._id)}
+                            title="Remove from favorites"
                           >
-                            Read
-                          </Link>
-                        )}
-                        {fav.url && (
-                          <a
-                            className="btn btn-outline-secondary btn-sm"
-                            href={fav.url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            Open Source
-                          </a>
-                        )}
-                        <button
-                          className="btn btn-outline-danger btn-sm"
-                          onClick={() => onRemove(fav.id || fav._id)}
-                          title="Remove from favorites"
-                        >
-                          Remove
-                        </button>
+                            Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

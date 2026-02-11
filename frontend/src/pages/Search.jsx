@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+// src/pages/Search.jsx
+import { useEffect, useMemo, useState } from "react";
 import { searchEverything } from "../services/newsApi.js";
 import NewsCard from "../components/NewsCard.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
@@ -15,7 +16,7 @@ export default function Search() {
 
   // Pagination
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12); // ← user-adjustable
+  const [pageSize, setPageSize] = useState(12); // user‑adjustable
 
   // Data
   const [articles, setArticles] = useState([]);
@@ -25,13 +26,11 @@ export default function Search() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  // Calculate date range based on filter
-  function getDateRange() {
+  // ✅ Memoize derived date range to satisfy React Hook rules
+  const dateRange = useMemo(() => {
     if (dateFilter === "all") return {};
-
     const now = new Date();
     const from = new Date();
-
     switch (dateFilter) {
       case "day":
         from.setDate(now.getDate() - 1);
@@ -45,12 +44,8 @@ export default function Search() {
       default:
         return {};
     }
-
-    return {
-      from: from.toISOString(),
-      to: now.toISOString(),
-    };
-  }
+    return { from: from.toISOString(), to: now.toISOString() };
+  }, [dateFilter]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -61,7 +56,6 @@ export default function Search() {
       try {
         setLoading(true);
         setErr(null);
-        const dateRange = getDateRange();
         const data = await searchEverything({
           q,
           page,
@@ -69,7 +63,9 @@ export default function Search() {
           sortBy,
           language,
           ...dateRange,
+          // signal: controller.signal, // if your service supports AbortController
         });
+
         if (!ignore) {
           setArticles(data.articles || []);
           setTotalResults(data.totalResults || 0);
@@ -77,7 +73,7 @@ export default function Search() {
       } catch (e) {
         if (!ignore && e.name !== "AbortError") {
           setErr("Failed to load search results. Please try again.");
-          console.error(e);
+          if (import.meta.env.DEV) console.error(e);
         }
       } finally {
         if (!ignore) setLoading(false);
@@ -88,7 +84,7 @@ export default function Search() {
       ignore = true;
       controller.abort();
     };
-  }, [q, page, pageSize, sortBy, language, dateFilter]);
+  }, [q, page, pageSize, sortBy, language, dateRange]);
 
   function onSubmit(e) {
     e.preventDefault();
@@ -104,7 +100,7 @@ export default function Search() {
       <h2>Search</h2>
 
       {/* Filter Bar */}
-      <div className="card mb-3">
+      <div className="card card-surface mb-3">
         <div className="card-body">
           <h6 className="card-title mb-3">Filters</h6>
           <div className="row g-3">
@@ -181,7 +177,7 @@ export default function Search() {
           placeholder="Search articles..."
           defaultValue={q}
         />
-        <button className="btn btn-primary" type="submit" disabled={loading}>
+        <button className="btn btn-accent" type="submit" disabled={loading}>
           {loading ? "Searching…" : "Search"}
         </button>
       </form>
@@ -195,7 +191,10 @@ export default function Search() {
       {err && <div className="alert alert-danger">{err}</div>}
 
       {!loading && articles.length === 0 && !err && (
-        <div className="alert alert-info">No results found for “{q}”.</div>
+        <div className="card card-surface p-4 text-center">
+          <h6 className="mb-1">No results found for “{q}”.</h6>
+          <p className="text-muted mb-0">Try another keyword or adjust filters.</p>
+        </div>
       )}
 
       {!loading && (
@@ -215,10 +214,10 @@ export default function Search() {
               setPageSize(size);
               setPage(1);
             }}
-            pageSizeOptions={[12, 24, 50, 100]} // customize if you like
-            window={2} // numbered pages on each side (2 -> up to 5 visible)
-            showFirstLast={true} // « First / Last »
-            compact={false} // set true for smaller controls
+            pageSizeOptions={[12, 24, 50, 100]}
+            window={2}
+            showFirstLast={true}
+            compact={false}
           />
         </>
       )}

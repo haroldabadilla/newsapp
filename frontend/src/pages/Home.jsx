@@ -1,3 +1,4 @@
+// src/pages/Home.jsx
 import { useEffect, useState } from "react";
 import { fetchTopHeadlines } from "../services/newsApi.js";
 import NewsCard from "../components/NewsCard.jsx";
@@ -6,26 +7,18 @@ import Spinner from "../components/Spinner.jsx";
 import { useDebounce } from "../utils/hooks.js";
 
 export default function Home() {
-  // Filters
   const [country, setCountry] = useState("us");
   const [category, setCategory] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Debounced search query - only triggers API call 500ms after user stops typing
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
-
-  // Track if search is pending debounce
   const isSearchPending = searchQuery !== debouncedSearchQuery;
 
-  // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
-  // Data
   const [articles, setArticles] = useState([]);
   const [totalResults, setTotalResults] = useState(0);
 
-  // UI
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
@@ -37,13 +30,7 @@ export default function Home() {
       try {
         setLoading(true);
         setErr(null);
-        const params = {
-          country,
-          page,
-          pageSize,
-        };
-
-        // Add optional filters (use debounced search)
+        const params = { country, page, pageSize };
         if (category) params.category = category;
         if (debouncedSearchQuery) params.q = debouncedSearchQuery;
 
@@ -62,11 +49,9 @@ export default function Home() {
       }
     })();
 
-    return () => {
-      ignore = true;
-      controller.abort();
-    };
+    return () => { ignore = true; controller.abort(); };
   }, [page, pageSize, country, category, debouncedSearchQuery]);
+
   return (
     <>
       <div className="d-flex align-items-center justify-content-between mb-3">
@@ -74,22 +59,17 @@ export default function Home() {
       </div>
 
       {/* Filter Bar */}
-      <div className="card mb-3">
+      <div className="card card-surface mb-3">
         <div className="card-body">
           <h6 className="card-title mb-3">Filters</h6>
           <div className="row g-3">
             <div className="col-md-4">
-              <label htmlFor="country" className="form-label small">
-                Country
-              </label>
+              <label htmlFor="country" className="form-label small">Country</label>
               <select
                 id="country"
                 className="form-select"
                 value={country}
-                onChange={(e) => {
-                  setCountry(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setCountry(e.target.value); setPage(1); }}
               >
                 <option value="us">United States</option>
                 <option value="gb">United Kingdom</option>
@@ -108,17 +88,12 @@ export default function Home() {
             </div>
 
             <div className="col-md-4">
-              <label htmlFor="category" className="form-label small">
-                Category
-              </label>
+              <label htmlFor="category" className="form-label small">Category</label>
               <select
                 id="category"
                 className="form-select"
                 value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setCategory(e.target.value); setPage(1); }}
               >
                 <option value="">All Categories</option>
                 <option value="business">Business</option>
@@ -132,26 +107,18 @@ export default function Home() {
             </div>
 
             <div className="col-md-4">
-              <label htmlFor="searchQuery" className="form-label small">
-                Search in Headlines
-              </label>
+              <label htmlFor="searchQuery" className="form-label small">Search in Headlines</label>
               <input
                 id="searchQuery"
                 type="text"
                 className="form-control"
                 placeholder="Search keywords..."
                 value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
               />
               {isSearchPending && (
                 <small className="text-muted">
-                  <span
-                    className="spinner-border spinner-border-sm me-1"
-                    role="status"
-                  />
+                  <span className="spinner-border spinner-border-sm me-1" role="status" />
                   Typing...
                 </small>
               )}
@@ -185,14 +152,11 @@ export default function Home() {
             total={totalResults}
             pageSize={pageSize}
             onChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            pageSizeOptions={[12, 24, 50, 100]} // customize if you like
-            window={2} // numbered pages on each side (2 -> up to 5 visible)
-            showFirstLast={true} // « First / Last »
-            compact={false} // set true for smaller controls
+            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            pageSizeOptions={[12, 24, 50, 100]}
+            window={2}
+            showFirstLast={true}
+            compact={false}
           />
         </>
       )}

@@ -61,6 +61,13 @@ export default function Profile() {
     [newPassword],
   );
 
+  // ✅ Only show "Member since" if this resolves to a valid date string
+  const joinedDate = useMemo(() => {
+    if (!user?.createdAt) return null;
+    const d = new Date(user.createdAt);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+  }, [user]);
+
   // Fetch current user data
   useEffect(() => {
     let ignore = false;
@@ -75,7 +82,6 @@ export default function Profile() {
         }
       } catch (e) {
         if (!ignore) {
-          // User not logged in, redirect to login
           navigate("/login", { replace: true });
         }
       } finally {
@@ -95,14 +101,11 @@ export default function Profile() {
     setError(null);
     setSuccess(null);
 
-    // Validate name
     if (!validation.name.valid) {
       setError(validation.name.message);
       setTouched((t) => ({ ...t, name: true }));
       return;
     }
-
-    // Validate email
     if (!validation.email.valid) {
       setError(validation.email.message);
       setTouched((t) => ({ ...t, email: true }));
@@ -117,8 +120,6 @@ export default function Profile() {
       });
       setUser(data.user);
       setSuccess("Profile updated successfully!");
-
-      // Dispatch event to update navbar
       window.dispatchEvent(
         new CustomEvent("auth:login", { detail: { user: data.user } }),
       );
@@ -136,35 +137,14 @@ export default function Profile() {
     setError(null);
     setSuccess(null);
 
-    // Mark fields as touched
     setTouched((t) => ({ ...t, newPassword: true, confirmPassword: true }));
 
-    if (!currentPassword) {
-      setError("Current password is required");
-      return;
-    }
-
-    if (!newPassword) {
-      setError("New password is required");
-      return;
-    }
-
-    // Validate new password
-    if (!validation.password.valid) {
-      setError(validation.password.message);
-      return;
-    }
-
-    // Check if passwords match
-    if (!validation.confirm.valid) {
-      setError(validation.confirm.message);
-      return;
-    }
-
-    // Check if new password is different from current
+    if (!currentPassword) return setError("Current password is required");
+    if (!newPassword) return setError("New password is required");
+    if (!validation.password.valid) return setError(validation.password.message);
+    if (!validation.confirm.valid) return setError(validation.confirm.message);
     if (currentPassword === newPassword) {
-      setError("New password must be different from current password");
-      return;
+      return setError("New password must be different from current password");
     }
 
     try {
@@ -252,7 +232,7 @@ export default function Profile() {
 
         {/* Personal Info Tab */}
         {activeTab === "info" && (
-          <div className="card">
+          <div className="card card-surface">
             <div className="card-body">
               <form onSubmit={handleUpdateInfo}>
                 <div className="mb-3">
@@ -316,11 +296,11 @@ export default function Profile() {
                   </small>
                 </div>
 
-                {user && (
+                {/* ✅ Only render if we have a valid date */}
+                {joinedDate && (
                   <div className="mb-3">
                     <small className="text-muted">
-                      Member since:{" "}
-                      {new Date(user.createdAt).toLocaleDateString()}
+                      Member since: {joinedDate}
                     </small>
                   </div>
                 )}
@@ -343,7 +323,7 @@ export default function Profile() {
 
         {/* Change Password Tab */}
         {activeTab === "password" && (
-          <div className="card">
+          <div className="card card-surface">
             <div className="card-body">
               <form onSubmit={handleUpdatePassword}>
                 <div className="mb-3">
@@ -364,7 +344,7 @@ export default function Profile() {
                     />
                     <button
                       type="button"
-                      className="btn btn-outline-secondary"
+                      className="btn btn-outline-light"
                       onClick={() => setShowPwd((s) => !s)}
                     >
                       {showPwd ? "Hide" : "Show"}
@@ -397,7 +377,6 @@ export default function Profile() {
                     required
                   />
 
-                  {/* Password Strength Indicator */}
                   {newPassword && (
                     <div className="mt-2">
                       <div className="d-flex align-items-center gap-2 mb-1">

@@ -40,7 +40,6 @@ export default function Login() {
         email: form.email.trim().toLowerCase(),
         password: form.password,
       });
-      // 🔔 tell the app we are logged in
       window.dispatchEvent(new CustomEvent("auth:login", { detail: { user: res?.user } }));
       navigate(nextPath, { replace: true });
     } catch (error) {
@@ -60,27 +59,31 @@ export default function Login() {
       {err && <div className="alert alert-danger">{err}</div>}
 
       <form className="mt-3" onSubmit={onSubmit} noValidate>
-        <div className="mb-3">
-          <label className="form-label" htmlFor="email">Email</label>
-          <input id="email" className="form-control" type="email" name="email"
-                 value={form.email} onChange={onChange} placeholder="you@example.com" required />
-        </div>
+        <div className="card card-surface">
+          <div className="card-body">
+            <div className="mb-3">
+              <label className="form-label" htmlFor="email">Email</label>
+              <input id="email" className="form-control" type="email" name="email"
+                value={form.email} onChange={onChange} placeholder="you@example.com" required />
+            </div>
 
-        <div className="mb-3">
-          <label className="form-label" htmlFor="password">Password</label>
-          <div className="input-group">
-            <input id="password" className="form-control" type={showPwd ? "text" : "password"}
-                   name="password" value={form.password} onChange={onChange} required minLength={8} />
-            <button type="button" className="btn btn-outline-secondary"
-                    onClick={() => setShowPwd((s) => !s)}>
-              {showPwd ? "Hide" : "Show"}
+            <div className="mb-3">
+              <label className="form-label" htmlFor="password">Password</label>
+              <div className="input-group">
+                <input id="password" className="form-control" type={showPwd ? "text" : "password"}
+                  name="password" value={form.password} onChange={onChange} required minLength={8} />
+                <button type="button" className="btn btn-outline-light"
+                  onClick={() => setShowPwd((s) => !s)}>
+                  {showPwd ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            <button className="btn btn-accent w-100" type="submit" disabled={loading}>
+              {loading ? "Signing in…" : "Login"}
             </button>
           </div>
         </div>
-
-        <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-          {loading ? "Signing in…" : "Login"}
-        </button>
       </form>
 
       <div className="text-center mt-3">
