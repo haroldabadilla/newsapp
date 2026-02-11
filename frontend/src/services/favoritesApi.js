@@ -12,16 +12,23 @@ function sanitizeFavoritePayload(article) {
     title: article?.title,
     source: article?.source?.name || article?.source || undefined,
     urlToImage: article?.urlToImage || undefined,
+    description: article?.description || undefined,
+    content: article?.content || undefined,
     publishedAt: article?.publishedAt || undefined, // ISO string or Date or undefined
   };
 
   // Remove undefined/null/empty string fields
   const cleaned = Object.fromEntries(
-    Object.entries(raw).filter(([, v]) => v !== undefined && v !== null && v !== "")
+    Object.entries(raw).filter(
+      ([, v]) => v !== undefined && v !== null && v !== "",
+    ),
   );
 
   // If publishedAt is present but invalid string -> drop it
-  if (typeof cleaned.publishedAt === "string" && isNaN(Date.parse(cleaned.publishedAt))) {
+  if (
+    typeof cleaned.publishedAt === "string" &&
+    isNaN(Date.parse(cleaned.publishedAt))
+  ) {
     delete cleaned.publishedAt;
   }
 

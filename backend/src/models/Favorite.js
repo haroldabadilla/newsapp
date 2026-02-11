@@ -13,6 +13,8 @@ const FavoriteSchema = new mongoose.Schema(
     source: { type: String },
     urlToImage: { type: String },
     publishedAt: { type: Date },
+    description: { type: String }, // Article description/summary
+    content: { type: String }, // Article content snippet
     addedAt: { type: Date, default: Date.now },
   },
   { timestamps: true },

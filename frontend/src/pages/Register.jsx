@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { registerUser } from "../services/authApi.js";
+import {
+  validateEmail,
+  validatePassword,
+  validateName,
+  checkPasswordStrength,
+} from "../utils/validation.js";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -13,21 +19,56 @@ export default function Register() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
+  const [touched, setTouched] = useState({
+    name: false,
+    email: false,
+    password: false,
+    confirm: false,
+  });
+
+  // Real-time validation feedback
+  const validation = useMemo(() => {
+    const nameCheck = validateName(form.name);
+    const emailCheck = validateEmail(form.email);
+    const passwordCheck = validatePassword(form.password);
+    const confirmMatch = form.password === form.confirm;
+
+    return {
+      name: nameCheck,
+      email: emailCheck,
+      password: passwordCheck,
+      confirm: {
+        valid: confirmMatch && form.confirm.length > 0,
+        message: confirmMatch || !form.confirm ? "" : "Passwords do not match",
+      },
+    };
+  }, [form]);
+
+  const passwordStrength = useMemo(
+    () => checkPasswordStrength(form.password),
+    [form.password],
+  );
 
   function onChange(e) {
     const { name, value } = e.target;
     setForm((f) => ({ ...f, [name]: value }));
+    // Clear global error when user starts typing
+    if (err) setErr(null);
+  }
+
+  function onBlur(field) {
+    setTouched((t) => ({ ...t, [field]: true }));
   }
 
   function validate() {
-    if (!form.name.trim()) return "Name is required.";
-    if (!form.email.trim()) return "Email is required.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-      return "Please enter a valid email.";
-    if (!form.password) return "Password is required.";
-    if (form.password.length < 8)
-      return "Password must be at least 8 characters.";
-    if (form.password !== form.confirm) return "Passwords do not match.";
+    // Mark all fields as touched
+    setTouched({ name: true, email: true, password: true, confirm: true });
+
+    if (!validation.name.valid) return validation.name.message;
+    if (!validation.email.valid) return validation.email.message;
+    if (!validation.password.valid) return validation.password.message;
+    if (!validation.confirm.valid) return validation.confirm.message;
+
     return null;
   }
 
@@ -83,12 +124,24 @@ export default function Register() {
                 <input
                   id="name"
                   name="name"
-                  className="form-control"
+                  className={`form-control ${
+                    touched.name
+                      ? validation.name.valid
+                        ? "is-valid"
+                        : "is-invalid"
+                      : ""
+                  }`}
                   value={form.name}
                   onChange={onChange}
+                  onBlur={() => onBlur("name")}
                   required
                   placeholder="e.g. Alex Johnson"
                 />
+                {touched.name && !validation.name.valid && (
+                  <div className="invalid-feedback d-block">
+                    {validation.name.message}
+                  </div>
+                )}
               </div>
 
               <div className="mb-3">
@@ -99,12 +152,24 @@ export default function Register() {
                   id="email"
                   name="email"
                   type="email"
-                  className="form-control"
+                  className={`form-control ${
+                    touched.email
+                      ? validation.email.valid
+                        ? "is-valid"
+                        : "is-invalid"
+                      : ""
+                  }`}
                   value={form.email}
                   onChange={onChange}
+                  onBlur={() => onBlur("email")}
                   required
                   placeholder="you@example.com"
                 />
+                {touched.email && !validation.email.valid && (
+                  <div className="invalid-feedback d-block">
+                    {validation.email.message}
+                  </div>
+                )}
               </div>
 
               <div className="mb-3">
@@ -116,12 +181,18 @@ export default function Register() {
                     id="password"
                     name="password"
                     type={showPwd ? "text" : "password"}
-                    className="form-control"
+                    className={`form-control ${
+                      touched.password
+                        ? validation.password.valid
+                          ? "is-valid"
+                          : "is-invalid"
+                        : ""
+                    }`}
                     value={form.password}
                     onChange={onChange}
+                    onBlur={() => onBlur("password")}
                     required
-                    minLength={8}
-                    placeholder="At least 8 characters"
+                    placeholder="Create a strong password"
                   />
                   <button
                     type="button"
@@ -132,6 +203,42 @@ export default function Register() {
                     {showPwd ? "Hide" : "Show"}
                   </button>
                 </div>
+
+                {/* Password Strength Indicator */}
+                {form.password && (
+                  <div className="mt-2">
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                      <small className="text-muted">Strength:</small>
+                      <span className={`badge bg-${passwordStrength.color}`}>
+                        {passwordStrength.strength}
+                      </span>
+                    </div>
+                    <div className="progress" style={{ height: "4px" }}>
+                      <div
+                        className={`progress-bar bg-${passwordStrength.color}`}
+                        role="progressbar"
+                        style={{
+                          width: `${(passwordStrength.score / 4) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    {passwordStrength.feedback.length > 0 && (
+                      <div className="small text-muted mt-1">
+                        <ul className="mb-0 ps-3">
+                          {passwordStrength.feedback.map((item, idx) => (
+                            <li key={idx}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {touched.password && !validation.password.valid && (
+                  <div className="text-danger small mt-1">
+                    {validation.password.message}
+                  </div>
+                )}
               </div>
 
               <div className="mb-3">
@@ -142,13 +249,24 @@ export default function Register() {
                   id="confirm"
                   name="confirm"
                   type={showPwd ? "text" : "password"}
-                  className="form-control"
+                  className={`form-control ${
+                    touched.confirm
+                      ? validation.confirm.valid
+                        ? "is-valid"
+                        : "is-invalid"
+                      : ""
+                  }`}
                   value={form.confirm}
                   onChange={onChange}
+                  onBlur={() => onBlur("confirm")}
                   required
-                  minLength={8}
                   placeholder="Re-type your password"
                 />
+                {touched.confirm && !validation.confirm.valid && (
+                  <div className="invalid-feedback d-block">
+                    {validation.confirm.message}
+                  </div>
+                )}
               </div>
 
               <button className="btn btn-primary w-100" disabled={loading}>

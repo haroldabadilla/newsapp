@@ -8,6 +8,11 @@ export default function Search() {
   // Query
   const [q, setQ] = useState("technology");
 
+  // Filters
+  const [sortBy, setSortBy] = useState("publishedAt");
+  const [language, setLanguage] = useState("en");
+  const [dateFilter, setDateFilter] = useState("all");
+
   // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12); // ← user-adjustable
@@ -20,35 +25,70 @@ export default function Search() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
+  // Calculate date range based on filter
+  function getDateRange() {
+    if (dateFilter === "all") return {};
+
+    const now = new Date();
+    const from = new Date();
+
+    switch (dateFilter) {
+      case "day":
+        from.setDate(now.getDate() - 1);
+        break;
+      case "week":
+        from.setDate(now.getDate() - 7);
+        break;
+      case "month":
+        from.setMonth(now.getMonth() - 1);
+        break;
+      default:
+        return {};
+    }
+
+    return {
+      from: from.toISOString(),
+      to: now.toISOString(),
+    };
+  }
+
   useEffect(() => {
+    const controller = new AbortController();
     let ignore = false;
+
     (async () => {
       if (!q) return;
       try {
         setLoading(true);
         setErr(null);
+        const dateRange = getDateRange();
         const data = await searchEverything({
           q,
           page,
-          pageSize, // ← honor selected page size
-          sortBy: "publishedAt",
-          language: "en",
+          pageSize,
+          sortBy,
+          language,
+          ...dateRange,
         });
         if (!ignore) {
           setArticles(data.articles || []);
           setTotalResults(data.totalResults || 0);
         }
       } catch (e) {
-        if (!ignore) setErr("Failed to load search results. Please try again.");
-        console.error(e);
+        if (!ignore && e.name !== "AbortError") {
+          setErr("Failed to load search results. Please try again.");
+          console.error(e);
+        }
       } finally {
         if (!ignore) setLoading(false);
       }
     })();
+
     return () => {
       ignore = true;
+      controller.abort();
     };
-  }, [q, page, pageSize]); // ← refetch when pageSize changes too
+  }, [q, page, pageSize, sortBy, language, dateFilter]);
 
   function onSubmit(e) {
     e.preventDefault();
@@ -62,6 +102,78 @@ export default function Search() {
   return (
     <>
       <h2>Search</h2>
+
+      {/* Filter Bar */}
+      <div className="card mb-3">
+        <div className="card-body">
+          <h6 className="card-title mb-3">Filters</h6>
+          <div className="row g-3">
+            <div className="col-md-4">
+              <label htmlFor="sortBy" className="form-label small">
+                Sort by
+              </label>
+              <select
+                id="sortBy"
+                className="form-select"
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="publishedAt">Newest First</option>
+                <option value="relevancy">Relevancy</option>
+                <option value="popularity">Popularity</option>
+              </select>
+            </div>
+
+            <div className="col-md-4">
+              <label htmlFor="dateFilter" className="form-label small">
+                Date Range
+              </label>
+              <select
+                id="dateFilter"
+                className="form-select"
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">All Time</option>
+                <option value="day">Last 24 Hours</option>
+                <option value="week">Last Week</option>
+                <option value="month">Last Month</option>
+              </select>
+            </div>
+
+            <div className="col-md-4">
+              <label htmlFor="language" className="form-label small">
+                Language
+              </label>
+              <select
+                id="language"
+                className="form-select"
+                value={language}
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="ar">Arabic</option>
+                <option value="zh">Chinese</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <form className="d-flex gap-2 mb-3" onSubmit={onSubmit}>
         <input
           className="form-control"

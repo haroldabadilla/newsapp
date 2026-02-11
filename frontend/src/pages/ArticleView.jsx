@@ -1,10 +1,13 @@
-// src/pages/ArticleView.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import placeholderImg from "../assets/placeholder-news.png";
 import Spinner from "../components/Spinner.jsx";
-import { addFavorite } from "../services/favoritesApi.js";
+import {
+  addFavorite,
+  removeFavorite,
+  listFavorites,
+} from "../services/favoritesApi.js";
 
 const auth = axios.create({
   baseURL: "/api/auth",
@@ -19,7 +22,12 @@ function onImgError(e) {
 
 function makeIdFromUrl(url) {
   try {
-    return "art_" + btoa(unescape(encodeURIComponent(url))).replace(/=+$/,"").slice(-16);
+    return (
+      "art_" +
+      btoa(unescape(encodeURIComponent(url)))
+        .replace(/=+$/, "")
+        .slice(-16)
+    );
   } catch {
     return "art_" + encodeURIComponent(url).slice(-16);
   }
@@ -32,7 +40,11 @@ export default function ArticleView() {
 
   const stateArticle = location?.state?.article;
   const articleUrl = useMemo(() => {
-    try { return decodeURIComponent(encodedUrl || ""); } catch { return ""; }
+    try {
+      return decodeURIComponent(encodedUrl || "");
+    } catch {
+      return "";
+    }
   }, [encodedUrl]);
 
   const storageKey = useMemo(() => {
@@ -46,10 +58,58 @@ export default function ArticleView() {
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState(null);
   const [saveErr, setSaveErr] = useState(null);
+  const [checkingFavorite, setCheckingFavorite] = useState(true);
+
+  // Check if article is already in favorites on mount
+  useEffect(() => {
+    let ignore = false;
+
+    async function checkIfFavorited() {
+      if (!articleUrl) {
+        setCheckingFavorite(false);
+        return;
+      }
+
+      try {
+        // Check if user is logged in first
+        await auth.get("/me");
+
+        // Fetch all favorites and check if this article exists
+        const data = await listFavorites({ page: 1, pageSize: 100 });
+        const existing = data.items?.find((item) => item.url === articleUrl);
+
+        if (!ignore && existing) {
+          setSavedId(existing.id || existing._id);
+        }
+      } catch (e) {
+        // User not logged in or error - that's okay, just not favorited
+        if (!ignore) {
+          setSavedId(null);
+        }
+      } finally {
+        if (!ignore) {
+          setCheckingFavorite(false);
+        }
+      }
+    }
+
+    checkIfFavorited();
+
+    return () => {
+      ignore = true;
+    };
+  }, [articleUrl]);
 
   useEffect(() => {
-    if (article) { setLoading(false); return; }
-    if (!storageKey) { setLoading(false); setNotFound(true); return; }
+    if (article) {
+      setLoading(false);
+      return;
+    }
+    if (!storageKey) {
+      setLoading(false);
+      setNotFound(true);
+      return;
+    }
     try {
       const raw = sessionStorage.getItem(storageKey);
       if (raw) {
@@ -87,6 +147,8 @@ export default function ArticleView() {
         title: article?.title || document.title || "Article",
         source: article?.source?.name || article?.source || "Unknown",
         urlToImage: article?.urlToImage,
+        description: article?.description,
+        content: article?.content,
         publishedAt: article?.publishedAt,
       };
       if (!payload.url) {
@@ -97,6 +159,16 @@ export default function ArticleView() {
       const res = await addFavorite(payload);
       setSavedId(res.id);
     } catch (e) {
+      // Handle 409 - article already favorited
+      if (e?.response?.status === 409) {
+        const existingId = e?.response?.data?.error?.id;
+        if (existingId) {
+          setSavedId(existingId);
+        }
+        // Don't show error for already favorited items
+        return;
+      }
+
       const msg = e?.response?.data?.error?.message || "Failed to add favorite";
       setSaveErr(msg);
       console.error(e);
@@ -105,13 +177,46 @@ export default function ArticleView() {
     }
   }
 
+  async function onRemoveFavorite() {
+    setSaveErr(null);
+
+    if (!savedId) {
+      setSaveErr("Cannot remove - article is not favorited");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await removeFavorite(savedId);
+      setSavedId(null);
+    } catch (e) {
+      const msg =
+        e?.response?.data?.error?.message || "Failed to remove favorite";
+      setSaveErr(msg);
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onToggleFavorite() {
+    if (savedId) {
+      await onRemoveFavorite();
+    } else {
+      await onAddFavorite();
+    }
+  }
+
   if (loading) {
     return <Spinner label="Loading article…" size="lg" />;
   }
 
   const title = article?.title || "Article";
-  const sourceName = article?.source?.name || article?.source || "Unknown source";
-  const publishedAt = article?.publishedAt ? new Date(article.publishedAt).toLocaleString() : "—";
+  const sourceName =
+    article?.source?.name || article?.source || "Unknown source";
+  const publishedAt = article?.publishedAt
+    ? new Date(article.publishedAt).toLocaleString()
+    : "—";
   const img = article?.urlToImage || placeholderImg;
   const description = article?.description;
   const content = article?.content;
@@ -121,10 +226,14 @@ export default function ArticleView() {
       <div className="col-12 col-lg-10">
         <div className="d-flex align-items-center justify-content-between mb-3">
           <h2 className="mb-0">{title}</h2>
-          <Link to="/" className="btn btn-link">&larr; Back</Link>
+          <Link to="/" className="btn btn-link">
+            &larr; Back
+          </Link>
         </div>
 
-        <div className="text-muted mb-3">{sourceName} • {publishedAt}</div>
+        <div className="text-muted mb-3">
+          {sourceName} • {publishedAt}
+        </div>
 
         <div className="card shadow-sm mb-3">
           <img
@@ -145,28 +254,51 @@ export default function ArticleView() {
 
             <div className="d-flex flex-wrap gap-2 mt-3">
               {articleUrl && (
-                <a className="btn btn-primary" href={articleUrl} target="_blank" rel="noreferrer">
+                <a
+                  className="btn btn-primary"
+                  href={articleUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   Open Original Article
                 </a>
               )}
               <button
-                className={`btn ${savedId ? "btn-success" : "btn-outline-secondary"}`}
-                onClick={onAddFavorite}
-                disabled={saving || !!savedId}
-                title={savedId ? "Already added" : "Add to favorites"}
+                className={`btn ${
+                  savedId ? "btn-danger" : "btn-outline-secondary"
+                }`}
+                onClick={onToggleFavorite}
+                disabled={saving || checkingFavorite}
+                title={savedId ? "Remove from favorites" : "Add to favorites"}
               >
-                {savedId ? "Added ✓" : saving ? "Saving…" : "Add to Favorites"}
+                {checkingFavorite
+                  ? "Checking..."
+                  : savedId
+                    ? saving
+                      ? "Removing…"
+                      : "Remove from Favorites"
+                    : saving
+                      ? "Saving…"
+                      : "Add to Favorites"}
               </button>
             </div>
 
             {saveErr && <div className="text-danger mt-2">{saveErr}</div>}
+            {savedId && !saving && !saveErr && (
+              <div className="text-success mt-2 small">
+                ✓ This article is in your favorites
+              </div>
+            )}
           </div>
         </div>
 
         {notFound && articleUrl && (
           <div className="alert alert-info">
-            We couldn’t load in‑app details for this article, but you can open it directly:&nbsp;
-            <a href={articleUrl} target="_blank" rel="noreferrer">{articleUrl}</a>
+            We couldn’t load in‑app details for this article, but you can open
+            it directly:&nbsp;
+            <a href={articleUrl} target="_blank" rel="noreferrer">
+              {articleUrl}
+            </a>
           </div>
         )}
       </div>

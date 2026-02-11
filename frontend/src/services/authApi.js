@@ -24,3 +24,18 @@ export async function fetchMe() {
   const { data } = await auth.get("/me");
   return data; // { user }
 }
+
+export async function updateProfile({
+  name,
+  email,
+  currentPassword,
+  newPassword,
+}) {
+  const { data } = await auth.put("/profile", {
+    name,
+    email,
+    currentPassword,
+    newPassword,
+  });
+  return data; // { success, user }
+}

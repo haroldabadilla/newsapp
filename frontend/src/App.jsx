@@ -6,7 +6,8 @@ import Search from "./pages/Search.jsx";
 import ArticleView from "./pages/ArticleView.jsx";
 import Favorites from "./pages/Favorites.jsx";
 import Login from "./pages/Login.jsx";
-import Register from "./pages/Register.jsx"; // <-- add this
+import Register from "./pages/Register.jsx";
+import Profile from "./pages/Profile.jsx";
 
 export default function App() {
   return (
@@ -19,7 +20,8 @@ export default function App() {
           <Route path="/article/:id" element={<ArticleView />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} /> {/* new */}
+          <Route path="/register" element={<Register />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
       </main>
     </BrowserRouter>

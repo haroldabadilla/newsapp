@@ -1,5 +1,6 @@
 import { Router } from "express";
 import axios from "axios";
+import https from "https";
 import { z } from "zod";
 
 const router = Router();
@@ -13,10 +14,16 @@ if (!NEWS_API_KEY) {
   );
 }
 
+// Create HTTPS agent to handle SSL certificate issues (dev only)
+const httpsAgent = new https.Agent({
+  rejectUnauthorized: false, // Disable SSL verification for development
+});
+
 const api = axios.create({
   baseURL: NEWS_API_BASE,
   timeout: 10000,
   headers: { "X-Api-Key": NEWS_API_KEY }, // or { Authorization: NEWS_API_KEY }
+  httpsAgent: process.env.NODE_ENV === "production" ? undefined : httpsAgent,
 });
 
 // Short-circuit if key missing (nice to have)

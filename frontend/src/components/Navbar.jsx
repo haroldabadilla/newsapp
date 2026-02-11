@@ -61,19 +61,44 @@ export default function Navbar() {
   return (
     <nav className="navbar navbar-expand-lg bg-white border-bottom">
       <div className="container">
-        <Link to="/" className="navbar-brand">News<b>App</b></Link>
+        <Link to="/" className="navbar-brand">
+          News<b>App</b>
+        </Link>
 
-        <button className="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+        <button
+          className="navbar-toggler"
+          data-bs-toggle="collapse"
+          data-bs-target="#nav"
+        >
           <span className="navbar-toggler-icon" />
         </button>
 
         <div id="nav" className="collapse navbar-collapse">
           <ul className="navbar-nav me-auto">
-            <li className="nav-item"><NavLink to="/" end className="nav-link">Home</NavLink></li>
-            <li className="nav-item"><NavLink to="/search" className="nav-link">Search</NavLink></li>
-            {/* Show Favorites only when logged in */}
+            <li className="nav-item">
+              <NavLink to="/" end className="nav-link">
+                Home
+              </NavLink>
+            </li>
+            <li className="nav-item">
+              <NavLink to="/search" className="nav-link">
+                Search
+              </NavLink>
+            </li>
+            {/* Show Favorites and Profile only when logged in */}
             {!checking && user && (
-              <li className="nav-item"><NavLink to="/favorites" className="nav-link">Favorites</NavLink></li>
+              <>
+                <li className="nav-item">
+                  <NavLink to="/favorites" className="nav-link">
+                    Favorites
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink to="/profile" className="nav-link">
+                    Profile
+                  </NavLink>
+                </li>
+              </>
             )}
           </ul>
 
@@ -84,15 +109,26 @@ export default function Navbar() {
                   <span className="navbar-text me-2">Hi, {user.name}</span>
                 </li>
                 <li className="nav-item">
-                  <button className="btn btn-outline-secondary btn-sm" onClick={onLogoutClick}>
+                  <button
+                    className="btn btn-outline-secondary btn-sm"
+                    onClick={onLogoutClick}
+                  >
                     Logout
                   </button>
                 </li>
               </>
             ) : (
               <>
-                <li className="nav-item"><NavLink to="/login" className="nav-link">Login</NavLink></li>
-                <li className="nav-item"><NavLink to="/register" className="nav-link">Register</NavLink></li>
+                <li className="nav-item">
+                  <NavLink to="/login" className="nav-link">
+                    Login
+                  </NavLink>
+                </li>
+                <li className="nav-item">
+                  <NavLink to="/register" className="nav-link">
+                    Register
+                  </NavLink>
+                </li>
               </>
             )}
           </ul>

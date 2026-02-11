@@ -22,9 +22,14 @@ const addSchema = z.object({
   title: z.string().optional(),
   source: z.string().optional(),
   urlToImage: z.string().url().optional(),
+  description: z.string().optional(),
+  content: z.string().optional(),
   publishedAt: z
     .union([
-      z.string().datetime().transform((s) => new Date(s)), // ISO -> Date
+      z
+        .string()
+        .datetime()
+        .transform((s) => new Date(s)), // ISO -> Date
       z.date(),
       z.literal("").transform(() => undefined),
       z.undefined(),
@@ -68,7 +73,9 @@ router.post(
     if (!req.user?.id) {
       return res
         .status(401)
-        .json({ error: { code: "UNAUTHORIZED", message: "Authentication required" } });
+        .json({
+          error: { code: "UNAUTHORIZED", message: "Authentication required" },
+        });
     }
 
     const parsed = addSchema.parse(req.body);
@@ -82,12 +89,21 @@ router.post(
 
     try {
       const fav = await Favorite.create({ userId, ...payload });
-      return res.status(201).json({ id: String(fav._id), addedAt: fav.addedAt });
+      return res
+        .status(201)
+        .json({ id: String(fav._id), addedAt: fav.addedAt });
     } catch (err) {
       if (err?.code === 11000) {
-        const existing = await Favorite.findOne({ userId, url: payload.url }).lean();
+        const existing = await Favorite.findOne({
+          userId,
+          url: payload.url,
+        }).lean();
         return res.status(409).json({
-          error: { code: "ALREADY_FAVORITED", message: "Article already in favorites", id: String(existing?._id) },
+          error: {
+            code: "ALREADY_FAVORITED",
+            message: "Article already in favorites",
+            id: String(existing?._id),
+          },
         });
       }
       throw err;
@@ -104,7 +120,9 @@ router.delete(
 
     const deleted = await Favorite.findOneAndDelete({ _id: id, userId }).lean();
     if (!deleted) {
-      return res.status(404).json({ error: { code: "NOT_FOUND", message: "Favorite not found" } });
+      return res
+        .status(404)
+        .json({ error: { code: "NOT_FOUND", message: "Favorite not found" } });
     }
     return res.status(204).end();
   }),

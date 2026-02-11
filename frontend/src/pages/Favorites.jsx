@@ -1,6 +1,6 @@
 // src/pages/Favorites.jsx
 import { useEffect, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import Spinner from "../components/Spinner.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
@@ -16,6 +16,29 @@ function onImgError(e) {
   if (e.currentTarget.dataset.fallbackApplied) return;
   e.currentTarget.dataset.fallbackApplied = "1";
   e.currentTarget.src = placeholderImg;
+}
+
+function makeIdFromUrl(url) {
+  try {
+    return (
+      "art_" +
+      btoa(unescape(encodeURIComponent(url)))
+        .replace(/=+$/, "")
+        .slice(-16)
+    );
+  } catch {
+    return "art_" + encodeURIComponent(url).slice(-16);
+  }
+}
+
+function cacheArticleForView(article, url) {
+  if (!url) return;
+  try {
+    const id = makeIdFromUrl(url);
+    sessionStorage.setItem(`newsapp_article_${id}`, JSON.stringify(article));
+  } catch (e) {
+    console.error("Failed to cache article:", e);
+  }
 }
 
 export default function Favorites() {
@@ -53,7 +76,9 @@ export default function Favorites() {
         }
       }
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [navigate]);
 
   // 2) Loader to fetch favorites
@@ -79,7 +104,9 @@ export default function Favorites() {
     (async () => {
       await load();
     })();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [allowed, load]);
 
   // 3) Remove action
@@ -132,39 +159,77 @@ export default function Favorites() {
       {!loading && items.length > 0 && (
         <>
           <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
-            {items.map((fav) => (
-              <div key={fav.id || fav._id || fav.url} className="col">
-                <div className="card h-100 shadow-sm">
-                  <img
-                    src={fav.urlToImage || placeholderImg}
-                    alt={fav.title || "Article image"}
-                    className="card-img-top"
-                    onError={onImgError}
-                  />
-                  <div className="card-body d-flex flex-column">
-                    <div className="small text-muted mb-1">
-                      {fav.source || "Unknown source"} •{" "}
-                      {fav.publishedAt ? new Date(fav.publishedAt).toLocaleString() : "—"}
-                    </div>
-                    <h5 className="card-title">{fav.title || "Untitled article"}</h5>
-                    <div className="mt-auto d-flex gap-2">
-                      {fav.url && (
-                        <a className="btn btn-primary btn-sm" href={fav.url} target="_blank" rel="noreferrer">
-                          Open
-                        </a>
-                      )}
-                      <button
-                        className="btn btn-outline-danger btn-sm"
-                        onClick={() => onRemove(fav.id || fav._id)}
-                        title="Remove from favorites"
-                      >
-                        Remove
-                      </button>
+            {items.map((fav) => {
+              const detailPath = fav.url
+                ? `/article/${encodeURIComponent(fav.url)}`
+                : "#";
+
+              // Prepare article object for caching
+              const articleForCache = {
+                url: fav.url,
+                title: fav.title,
+                source: { name: fav.source },
+                urlToImage: fav.urlToImage,
+                publishedAt: fav.publishedAt,
+                description: fav.description,
+                content: fav.content,
+              };
+
+              return (
+                <div key={fav.id || fav._id || fav.url} className="col">
+                  <div className="card h-100 shadow-sm">
+                    <img
+                      src={fav.urlToImage || placeholderImg}
+                      alt={fav.title || "Article image"}
+                      className="card-img-top"
+                      onError={onImgError}
+                    />
+                    <div className="card-body d-flex flex-column">
+                      <div className="small text-muted mb-1">
+                        {fav.source || "Unknown source"} •{" "}
+                        {fav.publishedAt
+                          ? new Date(fav.publishedAt).toLocaleString()
+                          : "—"}
+                      </div>
+                      <h5 className="card-title">
+                        {fav.title || "Untitled article"}
+                      </h5>
+                      <div className="mt-auto d-flex gap-2 flex-wrap">
+                        {fav.url && (
+                          <Link
+                            className="btn btn-primary btn-sm"
+                            to={detailPath}
+                            state={{ article: articleForCache }}
+                            onClick={() =>
+                              cacheArticleForView(articleForCache, fav.url)
+                            }
+                          >
+                            Read
+                          </Link>
+                        )}
+                        {fav.url && (
+                          <a
+                            className="btn btn-outline-secondary btn-sm"
+                            href={fav.url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open Source
+                          </a>
+                        )}
+                        <button
+                          className="btn btn-outline-danger btn-sm"
+                          onClick={() => onRemove(fav.id || fav._id)}
+                          title="Remove from favorites"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <PaginationBar
@@ -172,7 +237,10 @@ export default function Favorites() {
             total={total}
             pageSize={pageSize}
             onChange={setPage}
-            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
           />
         </>
       )}
