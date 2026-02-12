@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchMe, updateProfile } from "../services/authApi.js";
+import Spinner from "../components/Spinner.jsx";
 import {
   validateEmail,
   validatePassword,
@@ -167,165 +168,177 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="d-flex justify-content-center py-5">
-        <div className="spinner-border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+      <div className="my-5">
+        <Spinner label="Loading your profile…" size="lg" />
       </div>
     );
   }
 
   return (
-    <div className="row justify-content-center">
-      <div className="col-md-8 col-lg-6">
-        <h2 className="mb-4">My Profile</h2>
+    <>
+      <div className="d-flex align-items-center justify-content-between mb-4">
+        <h2 className="mb-0">My Profile</h2>
+      </div>
 
-        {error && (
-          <div className="alert alert-danger alert-dismissible fade show">
-            {error}
-            <button
-              type="button"
-              className="btn-close"
-              onClick={() => setError(null)}
-            />
-          </div>
-        )}
-
-        {success && (
-          <div className="alert alert-success alert-dismissible fade show">
-            {success}
-            <button
-              type="button"
-              className="btn-close"
-              onClick={() => setSuccess(null)}
-            />
-          </div>
-        )}
-
-        {/* Tabs */}
-        <ul className="nav nav-tabs mb-4">
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === "info" ? "active" : ""}`}
-              onClick={() => {
-                setActiveTab("info");
-                setError(null);
-                setSuccess(null);
-              }}
-            >
-              Personal Info
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === "password" ? "active" : ""}`}
-              onClick={() => {
-                setActiveTab("password");
-                setError(null);
-                setSuccess(null);
-              }}
-            >
-              Change Password
-            </button>
-          </li>
-        </ul>
-
-        {/* Personal Info Tab */}
-        {activeTab === "info" && (
+      <div className="row g-4">
+        {/* User Info Card */}
+        <div className="col-lg-4">
           <div className="card card-surface">
-            <div className="card-body">
-              <form onSubmit={handleUpdateInfo}>
-                <div className="mb-3">
-                  <label htmlFor="name" className="form-label">
-                    Name
-                  </label>
-                  <input
-                    id="name"
-                    type="text"
-                    className={`form-control ${
-                      touched.name
-                        ? validation.name.valid
-                          ? "is-valid"
-                          : "is-invalid"
-                        : ""
-                    }`}
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-                    required
-                  />
-                  {touched.name && !validation.name.valid && (
-                    <div className="invalid-feedback d-block">
-                      {validation.name.message}
-                    </div>
-                  )}
+            <div className="card-body text-center p-4">
+              <div className="profile-avatar mb-3">
+                <div className="avatar-circle">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
                 </div>
-
-                <div className="mb-3">
-                  <label htmlFor="email" className="form-label">
-                    Email
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    className={`form-control ${
-                      touched.email
-                        ? validation.email.valid
-                          ? "is-valid"
-                          : "is-invalid"
-                        : ""
-                    }`}
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      if (error) setError(null);
-                    }}
-                    onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-                    required
-                  />
-                  {touched.email && !validation.email.valid && (
-                    <div className="invalid-feedback d-block">
-                      {validation.email.message}
-                    </div>
-                  )}
-                  <small className="text-muted">
-                    Changing your email will require verification
-                  </small>
+              </div>
+              <h4 className="mb-1">{user?.name || "User"}</h4>
+              <p className="text-muted mb-3">{user?.email}</p>
+              {joinedDate && (
+                <div className="small text-muted">
+                  <i className="bi bi-calendar-event me-1"></i>
+                  Member since {joinedDate}
                 </div>
-
-                {/* ✅ Only render if we have a valid date */}
-                {joinedDate && (
-                  <div className="mb-3">
-                    <small className="text-muted">
-                      Member since: {joinedDate}
-                    </small>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={
-                    updating ||
-                    !validation.name.valid ||
-                    !validation.email.valid
-                  }
-                >
-                  {updating ? "Updating..." : "Update Info"}
-                </button>
-              </form>
+              )}
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Change Password Tab */}
-        {activeTab === "password" && (
-          <div className="card card-surface">
-            <div className="card-body">
-              <form onSubmit={handleUpdatePassword}>
+        {/* Forms Section */}
+        <div className="col-lg-8">
+          {error && (
+            <div className="alert alert-danger alert-dismissible fade show mb-3">
+              {error}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setError(null)}
+              />
+            </div>
+          )}
+
+          {success && (
+            <div className="alert alert-success alert-dismissible fade show mb-3">
+              {success}
+              <button
+                type="button"
+                className="btn-close"
+                onClick={() => setSuccess(null)}
+              />
+            </div>
+          )}
+
+          {/* Tabs */}
+          <ul className="nav nav-tabs mb-3">
+            <li className="nav-item">
+              <button
+                className={`nav-link ${activeTab === "info" ? "active" : ""}`}
+                onClick={() => {
+                  setActiveTab("info");
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                Personal Info
+              </button>
+            </li>
+            <li className="nav-item">
+              <button
+                className={`nav-link ${activeTab === "password" ? "active" : ""}`}
+                onClick={() => {
+                  setActiveTab("password");
+                  setError(null);
+                  setSuccess(null);
+                }}
+              >
+                Change Password
+              </button>
+            </li>
+          </ul>
+
+          {/* Personal Info Tab */}
+          {activeTab === "info" && (
+            <div className="card card-surface">
+              <div className="card-body p-4">
+                <h5 className="card-title mb-4">Personal Information</h5>
+                <form onSubmit={handleUpdateInfo}>
+                  <div className="mb-3">
+                    <label htmlFor="name" className="form-label">
+                      Full Name
+                    </label>
+                    <input
+                      id="name"
+                      type="text"
+                      className={`form-control ${
+                        touched.name
+                          ? validation.name.valid
+                            ? "is-valid"
+                            : "is-invalid"
+                          : ""
+                      }`}
+                      value={name}
+                      onChange={(e) => {
+                        setName(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+                      required
+                    />
+                    {touched.name && !validation.name.valid && (
+                      <div className="invalid-feedback d-block">
+                        {validation.name.message}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-4">
+                    <label htmlFor="email" className="form-label">
+                      Email Address
+                    </label>
+                    <input
+                      id="email"
+                      type="email"
+                      className={`form-control ${
+                        touched.email
+                          ? validation.email.valid
+                            ? "is-valid"
+                            : "is-invalid"
+                          : ""
+                      }`}
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                      required
+                    />
+                    {touched.email && !validation.email.valid && (
+                      <div className="invalid-feedback d-block">
+                        {validation.email.message}
+                      </div>
+                    )}
+                    <small className="text-muted">
+                      Changing your email will require verification
+                    </small>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-accent px-4"
+                    disabled={updating || !validation.name.valid || !validation.email.valid}
+                  >
+                    {updating ? "Updating…" : "Update Info"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Change Password Tab */}
+          {activeTab === "password" && (
+            <div className="card card-surface">
+              <div className="card-body p-4">
+                <h5 className="card-title mb-4">Change Password</h5>
+                <form onSubmit={handleUpdatePassword}>
                 <div className="mb-3">
                   <label htmlFor="currentPassword" className="form-label">
                     Current Password
@@ -449,23 +462,24 @@ export default function Profile() {
                   Consider using a password manager.
                 </div>
 
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={
-                    updating ||
-                    !currentPassword ||
-                    !validation.password.valid ||
-                    !validation.confirm.valid
-                  }
-                >
-                  {updating ? "Updating..." : "Change Password"}
-                </button>
-              </form>
+                  <button
+                    type="submit"
+                    className="btn btn-accent px-4"
+                    disabled={
+                      updating ||
+                      !currentPassword ||
+                      !validation.password.valid ||
+                      !validation.confirm.valid
+                    }
+                  >
+                    {updating ? "Updating…" : "Change Password"}
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

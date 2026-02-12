@@ -6,6 +6,7 @@ import Spinner from "../components/Spinner.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
 import placeholderImg from "../assets/placeholder-news.png";
 import { listFavorites, removeFavorite } from "../services/favoritesApi.js";
+import { useDebounce } from "../utils/hooks.js";
 
 const auth = axios.create({
   baseURL: "/api/auth",
@@ -14,23 +15,7 @@ const auth = axios.create({
 
 // --- Toggle this to true if your API DOES NOT support filters yet.
 // When true, we fetch all favorites once and filter/paginate locally.
-const LOCAL_FILTERING_FALLBACK = false;
-
-// Shared language preference key
-const STORAGE_KEY_LANG = "newsapp_language";
-
-// Single source of truth for languages (code -> label)
-// Matches Search.jsx
-const LANG_OPTIONS = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "it", label: "Italian" },
-  { code: "pt", label: "Portuguese" },
-  { code: "ar", label: "Arabic" },
-  { code: "zh", label: "Chinese" },
-];
+const LOCAL_FILTERING_FALLBACK = true;
 
 function onImgError(e) {
   if (e.currentTarget.dataset.fallbackApplied) return;
@@ -69,17 +54,20 @@ function parseTs(v) {
   return Number.isNaN(t) ? 0 : t;
 }
 
-function applyFilters(list, { sortBy, language, fromISO, toISO }) {
+function applyFilters(list, { sortBy, fromISO, toISO, searchQuery }) {
   const fromTs = fromISO ? Date.parse(fromISO) : null;
   const toTs = toISO ? Date.parse(toISO) : null;
 
   let arr = Array.isArray(list) ? [...list] : [];
 
-  // language can be stored as language | lang
-  if (language && language !== "all") {
+  // Search query filter
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
     arr = arr.filter((x) => {
-      const lang = (x.language || x.lang || "").toLowerCase();
-      return lang === language.toLowerCase();
+      const title = (x.title || "").toLowerCase();
+      const desc = (x.description || "").toLowerCase();
+      const source = (x.source || "").toLowerCase();
+      return title.includes(q) || desc.includes(q) || source.includes(q);
     });
   }
 
@@ -131,28 +119,9 @@ export default function Favorites() {
   // --- Filters (matching Search UX) ---
   const [sortBy, setSortBy] = useState("publishedAt"); // publishedAt | oldest | title
   const [dateFilter, setDateFilter] = useState("all"); // all | day | week | month
-
-  // Initialize language from localStorage so it stays in sync with Search
-  const [language, setLanguage] = useState(() => {
-    try {
-      const saved = (localStorage.getItem(STORAGE_KEY_LANG) || "").toLowerCase();
-      const allowed = new Set(LANG_OPTIONS.map((l) => l.code));
-      return allowed.has(saved) ? saved : "en";
-    } catch {
-      return "en";
-    }
-  });
-
-  // Persist concrete language choice back to localStorage (but not "all")
-  useEffect(() => {
-    try {
-      if (language && language !== "all") {
-        localStorage.setItem(STORAGE_KEY_LANG, language.toLowerCase());
-      }
-    } catch {
-      /* ignore storage errors */
-    }
-  }, [language]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const isSearchPending = searchQuery !== debouncedSearchQuery;
 
   // Derived date range (same as Search.jsx)
   const dateRange = useMemo(() => {
@@ -228,7 +197,6 @@ export default function Favorites() {
           page,
           pageSize,
           sortBy, // (publishedAt|oldest|title) — validate server-side
-          language: language === "all" ? undefined : (language || "").toLowerCase(),
           from: dateRange.from,
           to: dateRange.to,
         });
@@ -241,9 +209,9 @@ export default function Favorites() {
 
         const filtered = applyFilters(base, {
           sortBy,
-          language,
           fromISO: dateRange.from,
           toISO: dateRange.to,
+          searchQuery: debouncedSearchQuery,
         });
 
         setTotal(filtered.length);
@@ -261,9 +229,9 @@ export default function Favorites() {
     page,
     pageSize,
     sortBy,
-    language,
     dateRange.from,
     dateRange.to,
+    debouncedSearchQuery,
     fetchAllFavorites,
     fullList,
   ]);
@@ -277,7 +245,7 @@ export default function Favorites() {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [sortBy, language, dateFilter]);
+  }, [sortBy, dateFilter, debouncedSearchQuery]);
 
   // 3) Remove action
   async function onRemove(id) {
@@ -317,25 +285,28 @@ export default function Favorites() {
         <h2 className="mb-0">Favorites</h2>
       </div>
 
-      {/* Filter Bar — mirrors Search UX */}
+      {/* Filter Bar */}
       <div className="card card-surface mb-3">
         <div className="card-body">
-          <h6 className="card-title mb-3">Filters</h6>
           <div className="row g-3">
-            <div className="col-md-4">
-              <label htmlFor="sortBy" className="form-label small">
-                Sort by
+            <div className="col-md-8">
+              <label htmlFor="searchQuery" className="form-label small">
+                Search Saved Articles
               </label>
-              <select
-                id="sortBy"
-                className="form-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                <option value="publishedAt">Newest First</option>
-                <option value="oldest">Oldest First</option>
-                <option value="title">Title (A–Z)</option>
-              </select>
+              <input
+                id="searchQuery"
+                type="text"
+                className="form-control"
+                placeholder="Search by title, description, or source..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {isSearchPending && (
+                <small className="text-muted">
+                  <span className="spinner-border spinner-border-sm me-1" role="status" />
+                  Searching...
+                </small>
+              )}
             </div>
 
             <div className="col-md-4">
@@ -352,25 +323,6 @@ export default function Favorites() {
                 <option value="day">Last 24 Hours</option>
                 <option value="week">Last Week</option>
                 <option value="month">Last Month</option>
-              </select>
-            </div>
-
-            <div className="col-md-4">
-              <label htmlFor="language" className="form-label small">
-                Language
-              </label>
-              <select
-                id="language"
-                className="form-select"
-                value={language}
-                onChange={(e) => setLanguage((e.target.value || "").toLowerCase())}
-              >
-                <option value="all">All Languages</option>
-                {LANG_OPTIONS.map(({ code, label }) => (
-                  <option key={code} value={code}>
-                    {label}
-                  </option>
-                ))}
               </select>
             </div>
           </div>
