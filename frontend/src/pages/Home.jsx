@@ -1,13 +1,12 @@
 // src/pages/Home.jsx
 import { useEffect, useState } from "react";
-import { fetchTopHeadlines } from "../services/newsApi.js";
+import { fetchTopHeadlines, searchEverything } from "../services/newsApi.js";
 import NewsCard from "../components/NewsCard.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { useDebounce } from "../utils/hooks.js";
 
 export default function Home() {
-  const [country, setCountry] = useState("us");
   const [category, setCategory] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
@@ -18,6 +17,7 @@ export default function Home() {
 
   const [articles, setArticles] = useState([]);
   const [totalResults, setTotalResults] = useState(0);
+  const [isShowingRandom, setIsShowingRandom] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
@@ -30,14 +30,35 @@ export default function Home() {
       try {
         setLoading(true);
         setErr(null);
-        const params = { country, page, pageSize };
-        if (category) params.category = category;
-        if (debouncedSearchQuery) params.q = debouncedSearchQuery;
+        
+        // Try top headlines first
+        const headlineParams = { page, pageSize };
+        if (category) headlineParams.category = category;
+        if (debouncedSearchQuery) headlineParams.q = debouncedSearchQuery;
 
-        const data = await fetchTopHeadlines(params);
-        if (!ignore) {
-          setArticles(data.articles || []);
-          setTotalResults(data.totalResults || 0);
+        const headlineData = await fetchTopHeadlines(headlineParams);
+        
+        // If we have results from top headlines, use them
+        if (!ignore && headlineData.articles && headlineData.articles.length > 0) {
+          setArticles(headlineData.articles);
+          setTotalResults(headlineData.totalResults || 0);
+          setIsShowingRandom(false);
+        } else if (!ignore) {
+          // No top headlines available, fetch random/everything headlines
+          const randomParams = { 
+            page, 
+            pageSize,
+            sortBy: 'publishedAt',
+            language: 'en'
+          };
+          if (category) randomParams.q = category; // Use category as search term
+          if (debouncedSearchQuery) randomParams.q = debouncedSearchQuery;
+          if (!randomParams.q) randomParams.q = 'news'; // Default search term
+          
+          const randomData = await searchEverything(randomParams);
+          setArticles(randomData.articles || []);
+          setTotalResults(randomData.totalResults || 0);
+          setIsShowingRandom(true);
         }
       } catch (e) {
         if (!ignore && e.name !== "AbortError") {
@@ -50,12 +71,17 @@ export default function Home() {
     })();
 
     return () => { ignore = true; controller.abort(); };
-  }, [page, pageSize, country, category, debouncedSearchQuery]);
+  }, [page, pageSize, category, debouncedSearchQuery]);
 
   return (
     <>
       <div className="d-flex align-items-center justify-content-between mb-3">
-        <h2 className="mb-0">Top Headlines</h2>
+        <h2 className="mb-0">
+          {isShowingRandom ? 'Latest News' : 'Top Headlines'}
+        </h2>
+        {isShowingRandom && (
+          <span className="badge bg-secondary">Random Headlines</span>
+        )}
       </div>
 
       {/* Filter Bar */}
@@ -63,31 +89,7 @@ export default function Home() {
         <div className="card-body">
           <h6 className="card-title mb-3">Filters</h6>
           <div className="row g-3">
-            <div className="col-md-4">
-              <label htmlFor="country" className="form-label small">Country</label>
-              <select
-                id="country"
-                className="form-select"
-                value={country}
-                onChange={(e) => { setCountry(e.target.value); setPage(1); }}
-              >
-                <option value="us">United States</option>
-                <option value="gb">United Kingdom</option>
-                <option value="ca">Canada</option>
-                <option value="au">Australia</option>
-                <option value="de">Germany</option>
-                <option value="fr">France</option>
-                <option value="it">Italy</option>
-                <option value="es">Spain</option>
-                <option value="jp">Japan</option>
-                <option value="in">India</option>
-                <option value="cn">China</option>
-                <option value="br">Brazil</option>
-                <option value="mx">Mexico</option>
-              </select>
-            </div>
-
-            <div className="col-md-4">
+            <div className="col-md-6">
               <label htmlFor="category" className="form-label small">Category</label>
               <select
                 id="category"
@@ -106,7 +108,7 @@ export default function Home() {
               </select>
             </div>
 
-            <div className="col-md-4">
+            <div className="col-md-6">
               <label htmlFor="searchQuery" className="form-label small">Search in Headlines</label>
               <input
                 id="searchQuery"
@@ -141,7 +143,7 @@ export default function Home() {
 
       {!loading && (
         <>
-          <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
+          <div className="bento-grid">
             {articles.map((a, i) => (
               <NewsCard key={a.url || i} article={a} index={i} />
             ))}

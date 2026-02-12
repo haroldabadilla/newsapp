@@ -12,6 +12,12 @@ function onImgError(e) {
   e.currentTarget.src = placeholderImg;
 }
 
+function cleanText(text) {
+  if (!text) return text;
+  // Remove [+1234 chars] or similar patterns
+  return text.replace(/\s*\[\+\d+\s*chars?\]\s*$/i, '').trim();
+}
+
 function makeIdFromUrl(url) {
   try {
     return (
@@ -48,53 +54,62 @@ export default function NewsCard({ article, index }) {
     }
   }
 
+  // Bento grid: randomly assign different sizes for variety
+  const getBentoSize = () => {
+    // Create a pseudo-random pattern based on index
+    const patterns = [
+      'bento-small',    // 1x1
+      'bento-wide',     // 2x1
+      'bento-tall',     // 1x2
+      'bento-small',    // 1x1
+      'bento-large',    // 2x2
+      'bento-small',    // 1x1
+      'bento-wide',     // 2x1
+      'bento-small',    // 1x1
+    ];
+    return patterns[index % patterns.length];
+  };
+
   return (
-    <div className="col">
-      <div className="card-surface h-100">
-        <div className="ratio ratio-16x9">
-          <img
-            src={safeImg(urlToImage)}
-            alt={title || "Article image"}
-            className="w-100"
-            onError={onImgError}
-            style={{ objectFit: "cover", borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
-          />
-        </div>
-
-        {/* ⬇️ Added padding here */}
-        <div className="card-body d-flex flex-column p-3 p-sm-4">
-          <div className="small text-muted mb-2">
-            {source?.name || "Unknown source"} •{" "}
-            {publishedAt ? new Date(publishedAt).toLocaleString() : "—"}
+    <div className={`bento-item ${getBentoSize()}`}>
+      <div className="bento-card">
+        <img
+          src={safeImg(urlToImage)}
+          alt={title || "Article image"}
+          className="bento-bg-image"
+          onError={onImgError}
+        />
+        <div className="bento-overlay"></div>
+        <div className="bento-content">
+          <div className="bento-meta">
+            <span className="bento-source">{source?.name || "Unknown source"}</span>
+            <span className="bento-date">
+              {publishedAt ? new Date(publishedAt).toLocaleDateString() : "—"}
+            </span>
           </div>
-
-          <h5 className="card-title">{title || "Untitled article"}</h5>
-          {description && <p className="card-text text-muted mb-0">{description}</p>}
-
-          {/* ⬇️ a bit of spacing before the buttons */}
-          <div className="mt-auto pt-3">
-            <div className="d-flex justify-content-center flex-wrap gap-2">
-              {url && (
-                <Link
-                  className="btn btn-accent px-3 py-2"
-                  to={detailPath}
-                  state={{ article, id }}
-                  onClick={cacheForDetail}
-                >
-                  Read
-                </Link>
-              )}
-              {url && (
-                <a
-                  className="btn btn-outline-light px-3 py-2"
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open Source
-                </a>
-              )}
-            </div>
+          <h5 className="bento-title">{title || "Untitled article"}</h5>
+          {description && <p className="bento-description">{cleanText(description)}</p>}
+          <div className="bento-actions">
+            {url && (
+              <Link
+                className="btn btn-accent btn-sm"
+                to={detailPath}
+                state={{ article, id }}
+                onClick={cacheForDetail}
+              >
+                Read
+              </Link>
+            )}
+            {url && (
+              <a
+                className="btn btn-outline-light btn-sm"
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Source
+              </a>
+            )}
           </div>
         </div>
       </div>
