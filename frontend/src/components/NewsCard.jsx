@@ -54,9 +54,8 @@ export default function NewsCard({ article, index }) {
     }
   }
 
-  // Bento grid: randomly assign different sizes for variety
+  // Bento grid: pattern based on index
   const getBentoSize = () => {
-    // Create a pseudo-random pattern based on index
     const patterns = [
       'bento-small',    // 1x1
       'bento-wide',     // 2x1
@@ -71,7 +70,7 @@ export default function NewsCard({ article, index }) {
   };
 
   return (
-    <div className={`bento-item ${getBentoSize()}`}>
+    <div className={`bento-item ${getBentoSize()} reveal`}>
       <div className="bento-card">
         <img
           src={safeImg(urlToImage)}

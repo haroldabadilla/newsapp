@@ -4,6 +4,7 @@ import { searchEverything } from "../services/newsApi.js";
 import NewsCard from "../components/NewsCard.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
 import Spinner from "../components/Spinner.jsx";
+import { useRevealOnScroll } from "../utils/useReveal.js";
 
 export default function Search() {
   // Query
@@ -25,6 +26,13 @@ export default function Search() {
   // UI state
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
+
+  // Fade-in on scroll; re-scan when list or page changes
+  useRevealOnScroll(
+    ".reveal",
+    { threshold: 0.1, rootMargin: "0px 0px -10% 0px" },
+    `${articles.length}-${page}`
+  );
 
   // ✅ Memoize derived date range to satisfy React Hook rules
   const dateRange = useMemo(() => {
@@ -51,24 +59,122 @@ export default function Search() {
     const controller = new AbortController();
     let ignore = false;
 
+    // ---- Helpers -----------------------------------------------------------
+
+    // Deep-scan object graph to find an array of article-like objects
+    function findArticlesDeep(obj, depth = 0) {
+      if (!obj || typeof obj !== "object" || depth > 5) return null;
+      if (Array.isArray(obj)) {
+        if (obj.length > 0 && typeof obj[0] === "object") {
+          // Heuristic: looks like an article list if objects have a 'title' or 'url'
+          if ("title" in obj[0] || "url" in obj[0]) return obj;
+        }
+        return null;
+      }
+      for (const key of Object.keys(obj)) {
+        const val = obj[key];
+        if (Array.isArray(val)) {
+          const hit = findArticlesDeep(val, depth + 1);
+          if (hit) return hit;
+        } else if (val && typeof val === "object") {
+          const hit = findArticlesDeep(val, depth + 1);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    }
+
+    // Accept {articles} or {items}, and also Axios .data.* or other nesting
+    const pickArticles = (res) =>
+      res?.articles ??
+      res?.items ??
+      res?.data?.articles ??
+      res?.data?.items ??
+      findArticlesDeep(res) ??
+      [];
+
+    const pickTotal = (res, list) =>
+      res?.totalResults ??
+      res?.total ??
+      res?.data?.totalResults ??
+      res?.data?.total ??
+      (Array.isArray(list) ? list.length : 0);
+
+    // Ensure we render exactly pageSize items when possible (page 2 top-up)
+    async function topUpIfNeeded(baseItems = [], total = 0) {
+      let items = (baseItems || []).filter(Boolean).slice(0, pageSize);
+      if (items.length >= pageSize) return items;
+
+      const remainingPossible = Math.max(0, total - (page - 1) * pageSize);
+      if (remainingPossible <= items.length) return items; // last page for real
+
+      try {
+        const moreRes = await searchEverything({
+          q: q || "news",
+          page: page + 1,
+          pageSize,
+          sortBy,
+          language,
+          ...dateRange,
+          // signal: controller.signal, // enable if your service supports it
+        });
+        const nextItems = pickArticles(moreRes).filter(Boolean);
+        items = items.concat(nextItems).slice(0, pageSize);
+
+        if (import.meta.env.DEV) {
+          console.log("[Search] top-up fetched:", {
+            nextPage: page + 1,
+            nextItems: nextItems.length,
+            combined: items.length,
+          });
+        }
+      } catch {
+        // ignore failure, return partial items
+      }
+      return items;
+    }
+
+    // ---- Fetch -------------------------------------------------------------
+
     (async () => {
-      const searchQuery = q || "news"; // Use "news" as default if empty
+      const searchQuery = q || "news"; // default term so the grid isn't empty
       try {
         setLoading(true);
         setErr(null);
-        const data = await searchEverything({
+
+        const res = await searchEverything({
           q: searchQuery,
           page,
           pageSize,
           sortBy,
           language,
           ...dateRange,
-          // signal: controller.signal, // if your service supports AbortController
+          // signal: controller.signal,
         });
 
+        const baseItems = pickArticles(res);
+        const total = pickTotal(res, baseItems);
+        const filled = await topUpIfNeeded(baseItems, total);
+
         if (!ignore) {
-          setArticles(data.articles || []);
-          setTotalResults(data.totalResults || 0);
+          if (import.meta.env.DEV) {
+            console.log("[Search] fetched:", {
+              q: searchQuery,
+              candidates: {
+                "res.articles": Array.isArray(res?.articles) && res.articles.length,
+                "res.items": Array.isArray(res?.items) && res.items.length,
+                "res.data.articles": Array.isArray(res?.data?.articles) && res.data.articles.length,
+                "res.data.items": Array.isArray(res?.data?.items) && res.data.items.length,
+                deepScan: Array.isArray(findArticlesDeep(res)) && findArticlesDeep(res)?.length,
+              },
+              got: baseItems.length,
+              filled: filled.length,
+              total,
+            });
+          }
+
+          setArticles(filled || []);
+          setTotalResults(total || 0);
         }
       } catch (e) {
         if (!ignore && e.name !== "AbortError") {

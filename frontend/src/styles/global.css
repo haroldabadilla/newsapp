@@ -650,3 +650,16 @@ select:-webkit-autofill {
 @media (min-width: 992px) {
   .auth-page { padding-top: 3rem; }
 }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 420ms ease, transform 420ms ease;
+  will-change: opacity, transform;
+  contain: paint;
+}
+
+.reveal.in-view {
+  opacity: 1;
+  transform: none;
+}

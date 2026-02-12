@@ -1,3 +1,4 @@
+// src/pages/ArticleView.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -8,6 +9,7 @@ import {
   removeFavorite,
   listFavorites,
 } from "../services/favoritesApi.js";
+import SaveButton from "../components/SaveButton.jsx";
 
 const auth = axios.create({
   baseURL: "/api/auth",
@@ -23,7 +25,7 @@ function onImgError(e) {
 function cleanText(text) {
   if (!text) return text;
   // Remove [+1234 chars] or similar patterns
-  return text.replace(/\s*\[\+\d+\s*chars?\]\s*$/i, '').trim();
+  return text.replace(/\s*\[\+\d+\s*chars?\]\s*$/i, "").trim();
 }
 
 function makeIdFromUrl(url) {
@@ -88,11 +90,11 @@ export default function ArticleView() {
           setSavedId(existing.id || existing._id);
         }
       } catch (e) {
-        // User not logged in or error - that's okay, just not favorited
-        if (!ignore) {
-          setSavedId(null);
-        }
-      } finally {
+          if (import.meta.env.DEV) {
+            console.warn("[ArticleView] checkIfFavorited failed:", e?.message || e);
+          }
+          if (!ignore) setSavedId(null);
+        } finally {
         if (!ignore) {
           setCheckingFavorite(false);
         }
@@ -283,24 +285,18 @@ export default function ArticleView() {
                     Read Full Article
                   </a>
                 )}
-                <button
-                  className={`btn px-4 ${
-                    savedId ? "btn-danger" : "btn-outline-light"
-                  }`}
-                  onClick={onToggleFavorite}
-                  disabled={saving || checkingFavorite}
-                  title={savedId ? "Remove from favorites" : "Add to favorites"}
-                >
-                  {checkingFavorite
-                    ? "Checking..."
-                    : savedId
-                      ? saving
-                        ? "Removing…"
-                        : "❤️ Saved"
-                      : saving
-                        ? "Saving…"
-                        : "🤍 Save"}
-                </button>
+
+                {/* Replaced emoji button with professional bookmark icon */}
+                <SaveButton
+                  saved={!!savedId}
+                  onToggle={() => {
+                    // prevent double actions while checking/saving
+                    if (saving || checkingFavorite) return;
+                    onToggleFavorite();
+                  }}
+                  size="md"
+                  variant="outline-light"
+                />
               </div>
 
               {saveErr && (

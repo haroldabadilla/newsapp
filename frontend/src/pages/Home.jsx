@@ -5,6 +5,7 @@ import NewsCard from "../components/NewsCard.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
 import Spinner from "../components/Spinner.jsx";
 import { useDebounce } from "../utils/hooks.js";
+import { useRevealOnScroll } from "../utils/useReveal.js";
 
 export default function Home() {
   const [category, setCategory] = useState("");
@@ -22,66 +23,103 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
+  // Fade-in on scroll; re-scan when list/page changes
+  useRevealOnScroll(
+    ".reveal",
+    { threshold: 0.1, rootMargin: "0px 0px -10% 0px" },
+    `${articles.length}-${page}`
+  );
+
   useEffect(() => {
     const controller = new AbortController();
     let ignore = false;
+
+    // Ensure we render exactly pageSize items when possible
+    async function topUpIfNeeded(baseItems = [], total = 0, fetchPageFn) {
+      // sanitize and trim to pageSize
+      let items = (baseItems || []).filter(Boolean).slice(0, pageSize);
+      if (items.length >= pageSize) return items;
+
+      // if this is truly the last page, or API total is small, return what we have
+      const remainingPossible = Math.max(0, total - (page - 1) * pageSize);
+      if (remainingPossible <= items.length) return items;
+
+      try {
+        const next = await fetchPageFn(page + 1);
+        const more = (next?.articles || []).filter(Boolean);
+        items = items.concat(more).slice(0, pageSize);
+      } catch {
+        // ignore failures; still return partial items
+      }
+      return items;
+    }
 
     (async () => {
       try {
         setLoading(true);
         setErr(null);
-        
+
         // Try top headlines first
         const headlineParams = { page, pageSize };
         if (category) headlineParams.category = category;
         if (debouncedSearchQuery) headlineParams.q = debouncedSearchQuery;
 
         const headlineData = await fetchTopHeadlines(headlineParams);
-        
-        // If we have results from top headlines, use them
-        if (!ignore && headlineData.articles && headlineData.articles.length > 0) {
-          setArticles(headlineData.articles);
+
+        if (!ignore && Array.isArray(headlineData?.articles) && headlineData.articles.length > 0) {
+          // top up from the next headlines page if needed
+          const filled = await topUpIfNeeded(
+            headlineData.articles,
+            headlineData.totalResults || 0,
+            async (p) =>
+              fetchTopHeadlines({
+                page: p,
+                pageSize,
+                ...(category ? { category } : {}),
+                ...(debouncedSearchQuery ? { q: debouncedSearchQuery } : {}),
+              })
+          );
+
+          setArticles(filled);
           setTotalResults(headlineData.totalResults || 0);
           setIsShowingRandom(false);
         } else if (!ignore) {
-          // No top headlines available, fetch random/everything headlines
-          const randomParams = { 
-            page, 
-            pageSize,
-            sortBy: 'publishedAt',
-            language: 'en'
-          };
-          if (category) randomParams.q = category; // Use category as search term
-          if (debouncedSearchQuery) randomParams.q = debouncedSearchQuery;
-          if (!randomParams.q) randomParams.q = 'news'; // Default search term
-          
+          // Fallback: use "everything" search (still topped-up)
+          const q = debouncedSearchQuery || category || "news";
+          const randomParams = { page, pageSize, sortBy: "publishedAt", language: "en", q };
           const randomData = await searchEverything(randomParams);
-          setArticles(randomData.articles || []);
+
+          const filled = await topUpIfNeeded(
+            randomData.articles,
+            randomData.totalResults || 0,
+            async (p) => searchEverything({ ...randomParams, page: p })
+          );
+
+          setArticles(filled || []);
           setTotalResults(randomData.totalResults || 0);
           setIsShowingRandom(true);
         }
       } catch (e) {
         if (!ignore && e.name !== "AbortError") {
           setErr("Failed to load headlines. Please try again.");
-          console.error(e);
+          if (import.meta.env.DEV) console.error(e);
         }
       } finally {
         if (!ignore) setLoading(false);
       }
     })();
 
-    return () => { ignore = true; controller.abort(); };
+    return () => {
+      ignore = true;
+      controller.abort(); // keeps pattern consistent even if your services don't use signal yet
+    };
   }, [page, pageSize, category, debouncedSearchQuery]);
 
   return (
     <>
       <div className="d-flex align-items-center justify-content-between mb-3">
-        <h2 className="mb-0">
-          {isShowingRandom ? 'Latest News' : 'Top Headlines'}
-        </h2>
-        {isShowingRandom && (
-          <span className="badge bg-secondary">Random Headlines</span>
-        )}
+        <h2 className="mb-0">{isShowingRandom ? "Latest News" : "Top Headlines"}</h2>
+        {isShowingRandom && <span className="badge bg-secondary">Random Headlines</span>}
       </div>
 
       {/* Filter Bar */}
