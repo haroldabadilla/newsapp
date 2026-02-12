@@ -1,3 +1,4 @@
+
 // src/main.jsx
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -12,8 +13,10 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import './styles/global.css';
 
 /* Apply saved theme immediately (avoids flicker) */
-import { initTheme } from './utils/theme.js';
+import { initTheme, applyThemeColorForBrowserUI } from './utils/theme.js';
+
 initTheme();
+applyThemeColorForBrowserUI();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
