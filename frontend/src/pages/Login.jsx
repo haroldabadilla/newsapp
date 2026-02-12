@@ -54,41 +54,71 @@ export default function Login() {
   }
 
   return (
-    <>
-      <h2>Login</h2>
-      {err && <div className="alert alert-danger">{err}</div>}
-
-      <form className="mt-3" onSubmit={onSubmit} noValidate>
-        <div className="card card-surface">
+    <div className="row justify-content-center auth-page">
+      {/* Mirror Register sizing to keep both pages consistent */}
+      <div className="col-12 col-sm-10 col-md-7 col-lg-6 col-xl-5">
+        <div className="card card-surface shadow-sm">
           <div className="card-body">
-            <div className="mb-3">
-              <label className="form-label" htmlFor="email">Email</label>
-              <input id="email" className="form-control" type="email" name="email"
-                value={form.email} onChange={onChange} placeholder="you@example.com" required />
-            </div>
+            <h2 className="card-title mb-3">Login</h2>
 
-            <div className="mb-3">
-              <label className="form-label" htmlFor="password">Password</label>
-              <div className="input-group">
-                <input id="password" className="form-control" type={showPwd ? "text" : "password"}
-                  name="password" value={form.password} onChange={onChange} required minLength={8} />
-                <button type="button" className="btn btn-outline-light"
-                  onClick={() => setShowPwd((s) => !s)}>
-                  {showPwd ? "Hide" : "Show"}
-                </button>
+            {err && (
+              <div className="alert alert-danger" role="alert">
+                {err}
               </div>
-            </div>
+            )}
 
-            <button className="btn btn-accent w-100" type="submit" disabled={loading}>
-              {loading ? "Signing in…" : "Login"}
-            </button>
+            <form onSubmit={onSubmit} noValidate>
+              <div className="mb-3">
+                <label className="form-label" htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  className="form-control"
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={onChange}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="password">Password</label>
+                <div className="input-group">
+                  <input
+                    id="password"
+                    className="form-control"
+                    type={showPwd ? "text" : "password"}
+                    name="password"
+                    value={form.password}
+                    onChange={onChange}
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-light"
+                    onClick={() => setShowPwd((s) => !s)}
+                    aria-label={showPwd ? "Hide password" : "Show password"}
+                  >
+                    {showPwd ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+
+              <button className="btn btn-accent w-100" type="submit" disabled={loading}>
+                {loading ? "Signing in…" : "Login"}
+              </button>
+            </form>
+
+            <div className="text-center mt-3">
+              <small className="text-muted">
+                Don’t have an account? <Link to="/register">Register</Link>
+              </small>
+            </div>
           </div>
         </div>
-      </form>
-
-      <div className="text-center mt-3">
-        <small className="text-muted">Don’t have an account? <Link to="/register">Register</Link></small>
       </div>
-    </>
+    </div>
   );
 }
