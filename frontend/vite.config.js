@@ -12,4 +12,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 1000, // Increase to 1000kb to avoid warnings
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split vendor chunks for better caching
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'bootstrap': ['bootstrap'],
+          'axios': ['axios'],
+        },
+      },
+    },
+  },
 });
