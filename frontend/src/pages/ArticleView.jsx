@@ -20,6 +20,12 @@ function onImgError(e) {
   e.currentTarget.src = placeholderImg;
 }
 
+function cleanText(text) {
+  if (!text) return text;
+  // Remove [+1234 chars] or similar patterns
+  return text.replace(/\s*\[\+\d+\s*chars?\]\s*$/i, '').trim();
+}
+
 function makeIdFromUrl(url) {
   try {
     return (
@@ -218,89 +224,106 @@ export default function ArticleView() {
     ? new Date(article.publishedAt).toLocaleString()
     : "—";
   const img = article?.urlToImage || placeholderImg;
-  const description = article?.description;
-  const content = article?.content;
+  const description = cleanText(article?.description);
+  const content = cleanText(article?.content);
 
   return (
-    <div className="row justify-content-center">
-      <div className="col-12 col-lg-10">
-        <div className="d-flex align-items-center justify-content-between mb-3">
-          <h2 className="mb-0">{title}</h2>
-          <Link to="/" className="btn btn-link">
-            &larr; Back
+    <div className="article-view">
+      {/* Hero Image Section */}
+      <div className="article-hero mb-4">
+        <img
+          src={img}
+          alt={title}
+          className="article-hero-image"
+          onError={onImgError}
+        />
+        <div className="article-hero-overlay"></div>
+        <div className="article-hero-content">
+          <Link to="/" className="btn btn-sm btn-outline-light mb-3">
+            &larr; Back to Home
           </Link>
+          <h1 className="article-hero-title">{title}</h1>
+          <div className="article-hero-meta">
+            <span className="text-accent">{sourceName}</span>
+            <span className="mx-2">•</span>
+            <span>{publishedAt}</span>
+          </div>
         </div>
+      </div>
 
-        <div className="text-muted mb-3">
-          {sourceName} • {publishedAt}
-        </div>
-
-        <div className="card shadow-sm mb-3">
-          <img
-            src={img}
-            alt={title}
-            className="card-img-top"
-            onError={onImgError}
-            style={{ objectFit: "cover", maxHeight: 420 }}
-          />
-          <div className="card-body">
-            {description && <p className="lead">{description}</p>}
-            {content && <p>{content}</p>}
-            {!description && !content && (
-              <p className="text-muted">
-                Full content may be available at the original source.
-              </p>
-            )}
-
-            <div className="d-flex flex-wrap gap-2 mt-3">
-              {articleUrl && (
-                <a
-                  className="btn btn-primary"
-                  href={articleUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open Original Article
-                </a>
+      {/* Article Content */}
+      <div className="row justify-content-center">
+        <div className="col-12 col-lg-8 col-xl-7">
+          <div className="card card-surface mb-4">
+            <div className="card-body p-4 p-md-5">
+              {description && (
+                <p className="article-lead">{description}</p>
               )}
-              <button
-                className={`btn ${
-                  savedId ? "btn-danger" : "btn-outline-secondary"
-                }`}
-                onClick={onToggleFavorite}
-                disabled={saving || checkingFavorite}
-                title={savedId ? "Remove from favorites" : "Add to favorites"}
-              >
-                {checkingFavorite
-                  ? "Checking..."
-                  : savedId
-                    ? saving
-                      ? "Removing…"
-                      : "Remove from Favorites"
-                    : saving
-                      ? "Saving…"
-                      : "Add to Favorites"}
-              </button>
-            </div>
+              {content && (
+                <div className="article-content">
+                  <p>{content}</p>
+                </div>
+              )}
+              {!description && !content && (
+                <p className="text-muted text-center py-4">
+                  Full content is available at the original source.
+                </p>
+              )}
 
-            {saveErr && <div className="text-danger mt-2">{saveErr}</div>}
-            {savedId && !saving && !saveErr && (
-              <div className="text-success mt-2 small">
-                ✓ This article is in your favorites
+              <hr className="my-4" />
+
+              <div className="d-flex flex-wrap gap-2 justify-content-center">
+                {articleUrl && (
+                  <a
+                    className="btn btn-accent px-4"
+                    href={articleUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Read Full Article
+                  </a>
+                )}
+                <button
+                  className={`btn px-4 ${
+                    savedId ? "btn-danger" : "btn-outline-light"
+                  }`}
+                  onClick={onToggleFavorite}
+                  disabled={saving || checkingFavorite}
+                  title={savedId ? "Remove from favorites" : "Add to favorites"}
+                >
+                  {checkingFavorite
+                    ? "Checking..."
+                    : savedId
+                      ? saving
+                        ? "Removing…"
+                        : "❤️ Saved"
+                      : saving
+                        ? "Saving…"
+                        : "🤍 Save"}
+                </button>
               </div>
-            )}
-          </div>
-        </div>
 
-        {notFound && articleUrl && (
-          <div className="alert alert-info">
-            We couldn’t load in‑app details for this article, but you can open
-            it directly:&nbsp;
-            <a href={articleUrl} target="_blank" rel="noreferrer">
-              {articleUrl}
-            </a>
+              {saveErr && (
+                <div className="alert alert-danger mt-3 mb-0">{saveErr}</div>
+              )}
+              {savedId && !saving && !saveErr && (
+                <div className="text-success mt-3 text-center small">
+                  ✓ This article is in your favorites
+                </div>
+              )}
+            </div>
           </div>
-        )}
+
+          {notFound && articleUrl && (
+            <div className="alert alert-info mt-3">
+              We couldn't load in‑app details for this article, but you can open
+              it directly:&nbsp;
+              <a href={articleUrl} target="_blank" rel="noreferrer">
+                {articleUrl}
+              </a>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

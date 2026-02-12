@@ -7,7 +7,7 @@ import Spinner from "../components/Spinner.jsx";
 
 export default function Search() {
   // Query
-  const [q, setQ] = useState("technology");
+  const [q, setQ] = useState("");
 
   // Filters
   const [sortBy, setSortBy] = useState("publishedAt");
@@ -52,12 +52,12 @@ export default function Search() {
     let ignore = false;
 
     (async () => {
-      if (!q) return;
+      const searchQuery = q || "news"; // Use "news" as default if empty
       try {
         setLoading(true);
         setErr(null);
         const data = await searchEverything({
-          q,
+          q: searchQuery,
           page,
           pageSize,
           sortBy,
@@ -199,7 +199,7 @@ export default function Search() {
 
       {!loading && (
         <>
-          <div className="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3">
+          <div className="bento-grid">
             {articles.map((a, i) => (
               <NewsCard key={a.url || i} article={a} index={i} />
             ))}
