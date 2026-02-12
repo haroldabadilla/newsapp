@@ -606,3 +606,10 @@ select:-webkit-autofill {
 :root[data-theme="light"] .card-surface {
   box-shadow: 0 1px 0 rgba(27,31,36,0.06);
 }
+
+.auth-page {
+  padding: 2rem 0 3rem;
+}
+@media (min-width: 992px) {
+  .auth-page { padding-top: 3rem; }
+}
