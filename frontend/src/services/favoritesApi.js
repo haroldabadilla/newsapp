@@ -6,6 +6,12 @@ const fav = axios.create({
   withCredentials: true, // carry session cookie
 });
 
+/**
+ * Normalize/sanitize what we send to POST /api/favorites
+ * - Keep only meaningful fields
+ * - Accept publishedAt as ISO or Date (backend zod handles both)
+ * - Capture language if available so server-side language filtering can work
+ */
 function sanitizeFavoritePayload(article) {
   const raw = {
     url: article?.url,
@@ -15,13 +21,16 @@ function sanitizeFavoritePayload(article) {
     description: article?.description || undefined,
     content: article?.content || undefined,
     publishedAt: article?.publishedAt || undefined, // ISO string or Date or undefined
+    language:
+      (article?.language || article?.lang || "").toString().trim().toLowerCase() ||
+      undefined,
   };
 
   // Remove undefined/null/empty string fields
   const cleaned = Object.fromEntries(
     Object.entries(raw).filter(
-      ([, v]) => v !== undefined && v !== null && v !== "",
-    ),
+      ([, v]) => v !== undefined && v !== null && v !== ""
+    )
   );
 
   // If publishedAt is present but invalid string -> drop it
@@ -35,8 +44,35 @@ function sanitizeFavoritePayload(article) {
   return cleaned;
 }
 
-export async function listFavorites({ page = 1, pageSize = 12 } = {}) {
-  const { data } = await fav.get("/", { params: { page, pageSize } });
+/**
+ * List favorites with optional filters & sorting.
+ * @param {Object} opts
+ * @param {number} [opts.page=1]
+ * @param {number} [opts.pageSize=12]
+ * @param {"publishedAt"|"oldest"|"title"|"addedAt"} [opts.sortBy="publishedAt"]
+ * @param {string} [opts.language] - e.g. "en"; omit or "all" to disable language filtering
+ * @param {string|Date} [opts.from] - ISO string or Date; filters publishedAt >= from
+ * @param {string|Date} [opts.to]   - ISO string or Date; filters publishedAt <= to
+ */
+export async function listFavorites({
+  page = 1,
+  pageSize = 12,
+  sortBy = "publishedAt",
+  language,
+  from,
+  to,
+} = {}) {
+  const params = {
+    page,
+    pageSize,
+    sortBy,
+    // Send language only if not "all" and truthy
+    language: language && language !== "all" ? language : undefined,
+    from: from instanceof Date ? from.toISOString() : from,
+    to: to instanceof Date ? to.toISOString() : to,
+  };
+
+  const { data } = await fav.get("/", { params });
   return data; // { total, items, page, pageSize }
 }
 

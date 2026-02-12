@@ -1,5 +1,5 @@
 // src/pages/Favorites.jsx
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import Spinner from "../components/Spinner.jsx";
@@ -11,6 +11,26 @@ const auth = axios.create({
   baseURL: "/api/auth",
   withCredentials: true,
 });
+
+// --- Toggle this to true if your API DOES NOT support filters yet.
+// When true, we fetch all favorites once and filter/paginate locally.
+const LOCAL_FILTERING_FALLBACK = false;
+
+// Shared language preference key
+const STORAGE_KEY_LANG = "newsapp_language";
+
+// Single source of truth for languages (code -> label)
+// Matches Search.jsx
+const LANG_OPTIONS = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" },
+  { code: "ar", label: "Arabic" },
+  { code: "zh", label: "Chinese" },
+];
 
 function onImgError(e) {
   if (e.currentTarget.dataset.fallbackApplied) return;
@@ -43,6 +63,49 @@ function cacheArticleForView(article, url) {
   }
 }
 
+// --- Helpers for local filtering mode ---
+function parseTs(v) {
+  const t = v ? Date.parse(v) : NaN;
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function applyFilters(list, { sortBy, language, fromISO, toISO }) {
+  const fromTs = fromISO ? Date.parse(fromISO) : null;
+  const toTs = toISO ? Date.parse(toISO) : null;
+
+  let arr = Array.isArray(list) ? [...list] : [];
+
+  // language can be stored as language | lang
+  if (language && language !== "all") {
+    arr = arr.filter((x) => {
+      const lang = (x.language || x.lang || "").toLowerCase();
+      return lang === language.toLowerCase();
+    });
+  }
+
+  if (fromTs && toTs) {
+    arr = arr.filter((x) => {
+      const ts = parseTs(x.publishedAt);
+      return ts && ts >= fromTs && ts <= toTs;
+    });
+  }
+
+  // Sorting
+  arr.sort((a, b) => {
+    switch (sortBy) {
+      case "oldest":
+        return parseTs(a.publishedAt) - parseTs(b.publishedAt);
+      case "title":
+        return (a.title || "").localeCompare(b.title || "");
+      case "publishedAt":
+      default:
+        return parseTs(b.publishedAt) - parseTs(a.publishedAt); // newest first
+    }
+  });
+
+  return arr;
+}
+
 export default function Favorites() {
   const navigate = useNavigate();
 
@@ -50,15 +113,67 @@ export default function Favorites() {
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
-  // Data & pagination
-  const [items, setItems] = useState([]);
+  // Data
+  const [items, setItems] = useState([]); // currently displayed page (server or local slice)
   const [total, setTotal] = useState(0);
+
+  // For local filtering fallback (cache full list once)
+  const [fullList, setFullList] = useState(null);
+
+  // Pagination
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
   // Loading & error
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
+
+  // --- Filters (matching Search UX) ---
+  const [sortBy, setSortBy] = useState("publishedAt"); // publishedAt | oldest | title
+  const [dateFilter, setDateFilter] = useState("all"); // all | day | week | month
+
+  // Initialize language from localStorage so it stays in sync with Search
+  const [language, setLanguage] = useState(() => {
+    try {
+      const saved = (localStorage.getItem(STORAGE_KEY_LANG) || "").toLowerCase();
+      const allowed = new Set(LANG_OPTIONS.map((l) => l.code));
+      return allowed.has(saved) ? saved : "en";
+    } catch {
+      return "en";
+    }
+  });
+
+  // Persist concrete language choice back to localStorage (but not "all")
+  useEffect(() => {
+    try {
+      if (language && language !== "all") {
+        localStorage.setItem(STORAGE_KEY_LANG, language.toLowerCase());
+      }
+    } catch {
+      /* ignore storage errors */
+    }
+  }, [language]);
+
+  // Derived date range (same as Search.jsx)
+  const dateRange = useMemo(() => {
+    if (dateFilter === "all") return {};
+    const now = new Date();
+    const from = new Date();
+    switch (dateFilter) {
+      case "day":
+        from.setDate(now.getDate() - 1);
+        break;
+      case "week":
+        from.setDate(now.getDate() - 7);
+        break;
+      case "month":
+        from.setMonth(now.getMonth() - 1);
+        break;
+      default:
+        return {};
+    }
+    return { from: from.toISOString(), to: now.toISOString() };
+  }, [dateFilter]);
 
   // 1) Route guard: ensure logged in
   useEffect(() => {
@@ -83,33 +198,96 @@ export default function Favorites() {
     };
   }, [navigate]);
 
-  // 2) Loader to fetch favorites
+  // Helper: fetch ALL favorites (paged) once for local filtering fallback
+  const fetchAllFavorites = useCallback(async () => {
+    let p = 1;
+    const size = 100; // reasonable batch size
+    const acc = [];
+    // loop until we've fetched total
+    // first call to get total
+    const first = await listFavorites({ page: p, pageSize: size });
+    const grandTotal = first.total || 0;
+    acc.push(...(first.items || []));
+    while (acc.length < grandTotal) {
+      p += 1;
+      const res = await listFavorites({ page: p, pageSize: size });
+      acc.push(...(res.items || []));
+      if (!res.items || res.items.length === 0) break; // safety
+    }
+    return acc;
+  }, []);
+
+  // 2) Loader with server-first, local fallback
   const load = useCallback(async () => {
     setLoading(true);
     setErr(null);
     try {
-      const data = await listFavorites({ page, pageSize });
-      setItems(data.items || []);
-      setTotal(data.total || 0);
+      if (!LOCAL_FILTERING_FALLBACK) {
+        // Server-side filtering — pass filters directly
+        const data = await listFavorites({
+          page,
+          pageSize,
+          sortBy, // (publishedAt|oldest|title) — validate server-side
+          language: language === "all" ? undefined : (language || "").toLowerCase(),
+          from: dateRange.from,
+          to: dateRange.to,
+        });
+        setItems(data.items || []);
+        setTotal(data.total || 0);
+      } else {
+        // Local fallback — fetch all once, then filter + paginate
+        const base = fullList ?? (await fetchAllFavorites());
+        if (!fullList) setFullList(base);
+
+        const filtered = applyFilters(base, {
+          sortBy,
+          language,
+          fromISO: dateRange.from,
+          toISO: dateRange.to,
+        });
+
+        setTotal(filtered.length);
+        const start = (page - 1) * pageSize;
+        const end = start + pageSize;
+        setItems(filtered.slice(start, end));
+      }
     } catch (e) {
       setErr("Failed to load favorites. Please try again.");
       if (import.meta.env.DEV) console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [
+    page,
+    pageSize,
+    sortBy,
+    language,
+    dateRange.from,
+    dateRange.to,
+    fetchAllFavorites,
+    fullList,
+  ]);
 
+  // Initial & subsequent loads
   useEffect(() => {
     if (!allowed) return;
-    (async () => {
-      await load();
-    })();
+    load();
   }, [allowed, load]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [sortBy, language, dateFilter]);
 
   // 3) Remove action
   async function onRemove(id) {
     try {
       await removeFavorite(id);
+      // If using local fallback, also prune from fullList cache
+      if (LOCAL_FILTERING_FALLBACK && fullList) {
+        const next = fullList.filter((x) => (x.id || x._id) !== id);
+        setFullList(next);
+      }
       // Refresh current page; if page becomes empty after deletion, go back one page
       const remaining = items.length - 1;
       if (remaining === 0 && page > 1) {
@@ -139,6 +317,66 @@ export default function Favorites() {
         <h2 className="mb-0">Favorites</h2>
       </div>
 
+      {/* Filter Bar — mirrors Search UX */}
+      <div className="card card-surface mb-3">
+        <div className="card-body">
+          <h6 className="card-title mb-3">Filters</h6>
+          <div className="row g-3">
+            <div className="col-md-4">
+              <label htmlFor="sortBy" className="form-label small">
+                Sort by
+              </label>
+              <select
+                id="sortBy"
+                className="form-select"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="publishedAt">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title">Title (A–Z)</option>
+              </select>
+            </div>
+
+            <div className="col-md-4">
+              <label htmlFor="dateFilter" className="form-label small">
+                Date Range
+              </label>
+              <select
+                id="dateFilter"
+                className="form-select"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+              >
+                <option value="all">All Time</option>
+                <option value="day">Last 24 Hours</option>
+                <option value="week">Last Week</option>
+                <option value="month">Last Month</option>
+              </select>
+            </div>
+
+            <div className="col-md-4">
+              <label htmlFor="language" className="form-label small">
+                Language
+              </label>
+              <select
+                id="language"
+                className="form-select"
+                value={language}
+                onChange={(e) => setLanguage((e.target.value || "").toLowerCase())}
+              >
+                <option value="all">All Languages</option>
+                {LANG_OPTIONS.map(({ code, label }) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {loading && (
         <div className="my-5">
           <Spinner label="Loading favorites…" size="lg" />
@@ -149,7 +387,8 @@ export default function Favorites() {
 
       {!loading && !err && items.length === 0 && (
         <div className="alert alert-info">
-          No favorites yet. Open an article and click <b>Add to Favorites</b>.
+          No favorites match your filters. Try clearing filters or add new items from articles
+          (use <b>Add to Favorites</b>).
         </div>
       )}
 
@@ -181,7 +420,11 @@ export default function Favorites() {
                         alt={fav.title || "Article image"}
                         onError={onImgError}
                         className="w-100"
-                        style={{ objectFit: "cover", borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
+                        style={{
+                          objectFit: "cover",
+                          borderTopLeftRadius: 12,
+                          borderTopRightRadius: 12,
+                        }}
                       />
                     </div>
 
@@ -254,6 +497,10 @@ export default function Favorites() {
               setPageSize(size);
               setPage(1);
             }}
+            pageSizeOptions={[12, 24, 50, 100]}
+            window={2}
+            showFirstLast={true}
+            compact={false}
           />
         </>
       )}
