@@ -9,7 +9,7 @@
       "src": "frontend/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "frontend/dist"
       }
     }
   ],
@@ -23,11 +23,11 @@
       "dest": "frontend/dist/assets/$1"
     },
     {
-      "src": "/favicon.ico",
-      "dest": "frontend/dist/favicon.ico"
+      "src": "/NewsAppLogo.png",
+      "dest": "frontend/dist/NewsAppLogo.png"
     },
     {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|webp|ico))",
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot))",
       "dest": "frontend/dist/$1"
     },
     {
