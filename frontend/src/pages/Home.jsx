@@ -1,5 +1,5 @@
 // src/pages/Home.jsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { fetchTopHeadlines, searchEverything } from "../services/newsApi.js";
 import NewsCard from "../components/NewsCard.jsx";
 import PaginationBar from "../components/PaginationBar.jsx";
@@ -23,12 +23,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  // Fade-in on scroll; re-scan when list/page changes
-  useRevealOnScroll(
-    ".reveal",
-    { threshold: 0.1, rootMargin: "0px 0px -10% 0px" },
-    `${articles.length}-${page}`
+  // Memoize reveal options to prevent unnecessary observer recreation
+  const revealOptions = useMemo(
+    () => ({ threshold: 0.1, rootMargin: "0px 0px -10% 0px" }),
+    [],
   );
+
+  // Fade-in on scroll; re-scan when list/page changes
+  useRevealOnScroll(".reveal", revealOptions, `${articles.length}-${page}`);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,7 +68,11 @@ export default function Home() {
 
         const headlineData = await fetchTopHeadlines(headlineParams);
 
-        if (!ignore && Array.isArray(headlineData?.articles) && headlineData.articles.length > 0) {
+        if (
+          !ignore &&
+          Array.isArray(headlineData?.articles) &&
+          headlineData.articles.length > 0
+        ) {
           // top up from the next headlines page if needed
           const filled = await topUpIfNeeded(
             headlineData.articles,
@@ -77,7 +83,7 @@ export default function Home() {
                 pageSize,
                 ...(category ? { category } : {}),
                 ...(debouncedSearchQuery ? { q: debouncedSearchQuery } : {}),
-              })
+              }),
           );
 
           setArticles(filled);
@@ -86,13 +92,19 @@ export default function Home() {
         } else if (!ignore) {
           // Fallback: use "everything" search (still topped-up)
           const q = debouncedSearchQuery || category || "news";
-          const randomParams = { page, pageSize, sortBy: "publishedAt", language: "en", q };
+          const randomParams = {
+            page,
+            pageSize,
+            sortBy: "publishedAt",
+            language: "en",
+            q,
+          };
           const randomData = await searchEverything(randomParams);
 
           const filled = await topUpIfNeeded(
             randomData.articles,
             randomData.totalResults || 0,
-            async (p) => searchEverything({ ...randomParams, page: p })
+            async (p) => searchEverything({ ...randomParams, page: p }),
           );
 
           setArticles(filled || []);
@@ -118,8 +130,12 @@ export default function Home() {
   return (
     <>
       <div className="d-flex align-items-center justify-content-between mb-3">
-        <h2 className="mb-0">{isShowingRandom ? "Latest News" : "Top Headlines"}</h2>
-        {isShowingRandom && <span className="badge bg-secondary">Random Headlines</span>}
+        <h2 className="mb-0">
+          {isShowingRandom ? "Latest News" : "Top Headlines"}
+        </h2>
+        {isShowingRandom && (
+          <span className="badge bg-secondary">Random Headlines</span>
+        )}
       </div>
 
       {/* Filter Bar */}
@@ -128,12 +144,17 @@ export default function Home() {
           <h6 className="card-title mb-3">Filters</h6>
           <div className="row g-3">
             <div className="col-md-6">
-              <label htmlFor="category" className="form-label small">Category</label>
+              <label htmlFor="category" className="form-label small">
+                Category
+              </label>
               <select
                 id="category"
                 className="form-select"
                 value={category}
-                onChange={(e) => { setCategory(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setCategory(e.target.value);
+                  setPage(1);
+                }}
               >
                 <option value="">All Categories</option>
                 <option value="business">Business</option>
@@ -147,18 +168,26 @@ export default function Home() {
             </div>
 
             <div className="col-md-6">
-              <label htmlFor="searchQuery" className="form-label small">Search in Headlines</label>
+              <label htmlFor="searchQuery" className="form-label small">
+                Search in Headlines
+              </label>
               <input
                 id="searchQuery"
                 type="text"
                 className="form-control"
                 placeholder="Search keywords..."
                 value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(1);
+                }}
               />
               {isSearchPending && (
                 <small className="text-muted">
-                  <span className="spinner-border spinner-border-sm me-1" role="status" />
+                  <span
+                    className="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  />
                   Typing...
                 </small>
               )}
@@ -192,7 +221,10 @@ export default function Home() {
             total={totalResults}
             pageSize={pageSize}
             onChange={setPage}
-            onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
             pageSizeOptions={[12, 24, 50, 100]}
             window={2}
             showFirstLast={true}

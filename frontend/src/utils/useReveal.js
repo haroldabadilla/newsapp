@@ -15,30 +15,60 @@ import { useEffect } from "react";
 export function useRevealOnScroll(
   selector = ".reveal",
   { threshold = 0.1, rootMargin = "0px 0px -10% 0px" } = {},
-  depsKey = null
+  depsKey = null,
 ) {
   useEffect(() => {
-    const els = Array.from(document.querySelectorAll(selector));
+    let io = null;
 
-    // Fallback: if IntersectionObserver isn't supported, just reveal immediately
-    if (!("IntersectionObserver" in window)) {
-      els.forEach((el) => el.classList.add("in-view"));
-      return;
-    }
+    // Small delay to ensure DOM elements are painted
+    const timer = setTimeout(() => {
+      const els = Array.from(document.querySelectorAll(selector));
 
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("in-view");
-          }
+      if (els.length === 0) {
+        if (import.meta.env.DEV) {
+          console.log(
+            `[useRevealOnScroll] No elements found with selector "${selector}"`,
+          );
         }
-      },
-      { threshold, rootMargin }
-    );
+        return;
+      }
 
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
+      // Immediately reveal all newly rendered cards
+      els.forEach((el) => {
+        if (!el.classList.contains("in-view")) {
+          el.classList.add("in-view");
+        }
+      });
 
+      if (import.meta.env.DEV) {
+        console.log(
+          `[useRevealOnScroll] Found and revealed ${els.length} elements`,
+        );
+      }
+
+      // Set up observer for cards that scroll into view (for future scrolling)
+      if (!("IntersectionObserver" in window)) return;
+
+      io = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (
+              entry.isIntersecting &&
+              !entry.target.classList.contains("in-view")
+            ) {
+              entry.target.classList.add("in-view");
+            }
+          }
+        },
+        { threshold, rootMargin },
+      );
+
+      els.forEach((el) => io.observe(el));
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      if (io) io.disconnect();
+    };
   }, [selector, threshold, rootMargin, depsKey]);
 }

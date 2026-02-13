@@ -8,7 +8,8 @@ import { useRevealOnScroll } from "../utils/useReveal.js";
 
 export default function Search() {
   // Query
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(""); // The actual search query that triggers fetches
+  const [inputValue, setInputValue] = useState(""); // The input field value
 
   // Filters
   const [sortBy, setSortBy] = useState("publishedAt");
@@ -27,12 +28,14 @@ export default function Search() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
 
-  // Fade-in on scroll; re-scan when list or page changes
-  useRevealOnScroll(
-    ".reveal",
-    { threshold: 0.1, rootMargin: "0px 0px -10% 0px" },
-    `${articles.length}-${page}`
+  // Memoize reveal options to prevent unnecessary observer recreation
+  const revealOptions = useMemo(
+    () => ({ threshold: 0.1, rootMargin: "0px 0px -10% 0px" }),
+    [],
   );
+
+  // Fade-in on scroll; re-scan when list or page changes
+  useRevealOnScroll(".reveal", revealOptions, `${articles.length}-${page}`);
 
   // ✅ Memoize derived date range to satisfy React Hook rules
   const dateRange = useMemo(() => {
@@ -161,11 +164,17 @@ export default function Search() {
             console.log("[Search] fetched:", {
               q: searchQuery,
               candidates: {
-                "res.articles": Array.isArray(res?.articles) && res.articles.length,
+                "res.articles":
+                  Array.isArray(res?.articles) && res.articles.length,
                 "res.items": Array.isArray(res?.items) && res.items.length,
-                "res.data.articles": Array.isArray(res?.data?.articles) && res.data.articles.length,
-                "res.data.items": Array.isArray(res?.data?.items) && res.data.items.length,
-                deepScan: Array.isArray(findArticlesDeep(res)) && findArticlesDeep(res)?.length,
+                "res.data.articles":
+                  Array.isArray(res?.data?.articles) &&
+                  res.data.articles.length,
+                "res.data.items":
+                  Array.isArray(res?.data?.items) && res.data.items.length,
+                deepScan:
+                  Array.isArray(findArticlesDeep(res)) &&
+                  findArticlesDeep(res)?.length,
               },
               got: baseItems.length,
               filled: filled.length,
@@ -194,10 +203,13 @@ export default function Search() {
 
   function onSubmit(e) {
     e.preventDefault();
-    const nextQ = e.target.elements.q.value.trim();
-    if (nextQ !== q) {
+    const trimmedQuery = inputValue.trim();
+    if (trimmedQuery && trimmedQuery !== q) {
       setPage(1); // reset to first page when query changes
-      setQ(nextQ);
+      setQ(trimmedQuery);
+    } else if (trimmedQuery === q) {
+      // Same query, just reset page
+      setPage(1);
     }
   }
 
@@ -279,9 +291,9 @@ export default function Search() {
       <form className="d-flex gap-2 mb-3" onSubmit={onSubmit}>
         <input
           className="form-control"
-          name="q"
           placeholder="Search articles..."
-          defaultValue={q}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
         />
         <button className="btn btn-accent" type="submit" disabled={loading}>
           {loading ? "Searching…" : "Search"}
@@ -299,7 +311,9 @@ export default function Search() {
       {!loading && articles.length === 0 && !err && (
         <div className="card card-surface p-4 text-center">
           <h6 className="mb-1">No results found for “{q}”.</h6>
-          <p className="text-muted mb-0">Try another keyword or adjust filters.</p>
+          <p className="text-muted mb-0">
+            Try another keyword or adjust filters.
+          </p>
         </div>
       )}
 
